@@ -320,11 +320,10 @@ function Header({user,month,year,onMenuAction}){
 
 function Nav({tab,setTab,done,total}){
   const items=[
-    {id:'home',  icon:'⊞',label:'Início'},
-    {id:'tasks', icon:'✓',label:'Tarefas',badge:`${done}/${total}`},
-    {id:'expenses',icon:'€',label:'Encargos'},
-    {id:'invest',icon:'↗',label:'Invest.'},
-    {id:'more',  icon:'···',label:'Mais'},
+    {id:'home',    icon:'⊞', label:'Início'},
+    {id:'tasks',   icon:'✓', label:'Tarefas', badge:`${done}/${total}`},
+    {id:'expenses',icon:'€', label:'Encargos'},
+    {id:'more',    icon:'···',label:'Mais'},
   ];
   return(
     <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:'480px',background:'#111827',borderTop:'1px solid #1f2937',display:'flex',zIndex:20}}>
@@ -907,19 +906,20 @@ function AssetForm({asset,platforms,onSave,onDelete,onBack}){
 
 // ─── MORE (Cofres + Josi) ────────────────────────────────────────────────────
 
-function More({vaults,snapshots,josi,josiCfg,mk,user,onSaveSnapshots,onSaveJosi,onSaveJosiCfg,onSaveVaults,showToast}){
+function More({vaults,snapshots,josi,josiCfg,mk,user,onSaveSnapshots,onSaveJosi,onSaveJosiCfg,onSaveVaults,showToast,inv,assets,platforms,onSaveInv,onSaveAssets,onSavePlatforms}){
   const [sub,setSub]=useState('josi'); // 'josi' | 'cofres'
   return(
     <div style={{animation:'fadeUp 0.3s ease'}}>
-      <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
-        {[{id:'josi',label:'✦ Josi'},{id:'cofres',label:'◈ Cofres'}].map(t=>(
-          <button key={t.id} onClick={()=>setSub(t.id)} style={{flex:1,padding:'10px',borderRadius:'12px',border:'none',cursor:'pointer',background:sub===t.id?'#10b981':'#1f2937',color:sub===t.id?'#fff':'#6b7280',fontSize:'14px',fontWeight:'500',minHeight:'44px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',marginBottom:'20px'}}>
+        {[{id:'josi',label:'Josi'},{id:'cofres',label:'Cofres'},{id:'invest',label:'Invest.'}].map(t=>(
+          <button key={t.id} onClick={()=>setSub(t.id)} style={{padding:'10px 4px',borderRadius:'12px',border:'none',cursor:'pointer',background:sub===t.id?'#10b981':'#1f2937',color:sub===t.id?'#fff':'#6b7280',fontSize:'13px',fontWeight:'500',minHeight:'44px',width:'100%'}}>
             {t.label}
           </button>
         ))}
       </div>
       {sub==='josi'&&<JosiView entries={josi} cfg={josiCfg} mk={mk} user={user} onSave={onSaveJosi} onCfgChange={onSaveJosiCfg} showToast={showToast}/>}
       {sub==='cofres'&&<Cofres vaults={vaults} snapshots={snapshots} user={user} onSaveSnapshots={onSaveSnapshots} onSaveVaults={onSaveVaults} showToast={showToast}/>}
+      {sub==='invest'&&<Invest inv={inv} mk={mk} assets={assets} platforms={platforms} user={user} onSaveInv={onSaveInv} onSaveAssets={onSaveAssets} onSavePlatforms={onSavePlatforms}/>}
     </div>
   );
 }
@@ -1322,7 +1322,10 @@ function Settings({tasks,onSaveTasks,user,onClose,showToast}){
 
   return(
     <Modal title="Configurações" onClose={onClose}>
-      <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Gerir Tarefas</div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+        <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px'}}>Gerir Tarefas</div>
+        <Btn onClick={()=>setEditTask('new')} style={{padding:'7px 14px',fontSize:'13px'}}>+ Nova</Btn>
+      </div>
       {tasks.map(t=>(
         <div key={t.id} onClick={()=>setEditTask(t)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:'#1f2937',borderRadius:'12px',marginBottom:'8px',cursor:'pointer',minHeight:'52px'}}>
           <div style={{flex:1,minWidth:0,paddingRight:'8px'}}>
@@ -1332,7 +1335,6 @@ function Settings({tasks,onSaveTasks,user,onClose,showToast}){
           <span style={{color:'#374151',fontSize:'14px',flexShrink:0}}>›</span>
         </div>
       ))}
-      <Btn onClick={()=>setEditTask('new')} variant="secondary" style={{width:'100%',marginTop:'8px'}}>+ Nova Tarefa</Btn>
     </Modal>
   );
 }
@@ -1482,7 +1484,7 @@ function App(){
     ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk])=>{
       setCl(c||{}); setSnapshots(sn||[]); setInv(iv||[]);
       setJosi(j||[]); if(jc)setJosiCfg(jc); setHist(h||[]);
-      if(ex)setExpenses(ex); if(vl)setVaults(vl);
+      if(ex&&ex.length>0)setExpenses(ex); if(vl&&vl.length>0)setVaults(vl);
       if(as)setAssets(as); if(pl)setPlatforms(pl);
       if(tk)setTasks(tk);
       setReady(true);
@@ -1538,18 +1540,19 @@ function App(){
   const done=tasks.filter(t=>cl[t.id]?.done).length;
 
   const views={
-    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} hist={hist} onNavigate={t=>{if(t==='josi')setTab('more');else setTab(t);}} onHistView={setHistView}/>,
+    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} hist={hist} onNavigate={t=>{if(t==='josi'||t==='invest')setTab('more');else setTab(t);}} onHistView={setHistView}/>,
     tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
     expenses:<Expenses expenses={expenses} user={user} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
-    invest:<Invest inv={inv} mk={mk} assets={assets} platforms={platforms} user={user}
-      onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
-      onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
-      onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
+
     more:<More vaults={vaults} snapshots={snapshots} josi={josi} josiCfg={josiCfg} mk={mk} user={user} showToast={showToast}
+      inv={inv} assets={assets} platforms={platforms}
       onSaveSnapshots={async v=>{setSnapshots(v);await sv('snapshots',v);}}
       onSaveJosi={async v=>{setJosi(v);await sv(`josi-${mk}`,v);}}
       onSaveJosiCfg={async v=>{setJosiCfg(v);await sv('josi-cfg',v);}}
-      onSaveVaults={async v=>{setVaults(v);await sv('vaults',v);}}/>,
+      onSaveVaults={async v=>{setVaults(v);await sv('vaults',v);}}
+      onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
+      onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
+      onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
   };
 
   return(
