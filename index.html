@@ -1,242 +1,445 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
 <title>Monimoni</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet"/>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyCpYKbyco8Kka-xOI42qS7BuVdGWhKuzP4",
-    authDomain: "monimoni-e96b6.firebaseapp.com",
-    projectId: "monimoni-e96b6",
-    storageBucket: "monimoni-e96b6.firebasestorage.app",
-    messagingSenderId: "820576443924",
-    appId: "1:820576443924:web:b0eb6201d0c6580d37d101"
+  const cfg = {
+    apiKey:"AIzaSyCpYKbyco8Kka-xOI42qS7BuVdGWhKuzP4",
+    authDomain:"monimoni-e96b6.firebaseapp.com",
+    projectId:"monimoni-e96b6",
+    storageBucket:"monimoni-e96b6.firebasestorage.app",
+    messagingSenderId:"820576443924",
+    appId:"1:820576443924:web:b0eb6201d0c6580d37d101"
   };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  window._fbLoad = async (key) => {
-    try {
-      const snap = await getDoc(doc(db, "monimoni", key));
-      return snap.exists() ? snap.data().value : null;
-    } catch(e) { console.error("load", key, e); return null; }
-  };
-  window._fbSave = async (key, val) => {
-    try {
-      await setDoc(doc(db, "monimoni", key), { value: val });
-      return true;
-    } catch(e) { console.error("save", key, e); return false; }
-  };
-  window._fbReady = true;
-  window.dispatchEvent(new Event("fb-ready"));
+  const db = getFirestore(initializeApp(cfg));
+  window._fbLoad = async k => { try { const s=await getDoc(doc(db,"monimoni",k)); return s.exists()?s.data().value:null; } catch(e){console.error("load",k,e);return null;} };
+  window._fbSave = async (k,v) => { try { await setDoc(doc(db,"monimoni",k),{value:v}); return true; } catch(e){console.error("save",k,e);return false;} };
+  window._fbReady=true; window.dispatchEvent(new Event("fb-ready"));
 </script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body, #root { height: 100%; }
-  body { background: #0d1117; font-family: 'Lexend', sans-serif; color: #e2e8f0; overscroll-behavior: none; }
-  ::-webkit-scrollbar { width: 3px; }
-  ::-webkit-scrollbar-track { background: #0d1117; }
-  ::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
-  input, select, textarea, button { font-family: 'Lexend', sans-serif; }
-  input[type=number]::-webkit-inner-spin-button { opacity: 1; }
-  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
-  @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body,#root{height:100%;}
+body{background:#0d1117;font-family:'Lexend',sans-serif;color:#e2e8f0;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-track{background:#0d1117;}::-webkit-scrollbar-thumb{background:#374151;border-radius:2px;}
+input,select,textarea,button{font-family:'Lexend',sans-serif;}
+button{cursor:pointer;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 </style>
 </head>
-<body>
-<div id="root"></div>
+<body><div id="root"></div>
 <script type="text/babel">
-const { useState, useEffect, useRef } = React;
+const {useState,useEffect,useRef,useCallback}=React;
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
-const TASKS = [
-  { id:'nocas-cc',   label:'Nocas → Conta Conjunta',           desc:'1.050€',                                      type:'Manual' },
-  { id:'joao-cc',    label:'João → Conta Conjunta',            desc:'1.200€',                                      type:'Manual' },
-  { id:'jb1-cc',     label:'JB1 → Conta Conjunta',             desc:'250€ · automático dia 1',                     type:'Auto'   },
-  { id:'jb1-poup',   label:'JB1 → Poupança Conjunta',          desc:'400€ se saldo JB1 ≥ 5.500€',                 type:'Manual' },
-  { id:'cc-nocas',   label:'Conta Conjunta → Nocas',           desc:'750€ renda · automático dia 2',               type:'Auto'   },
-  { id:'cc-pai',     label:'Conta Conjunta → Pai',             desc:'750€ renda · automático dia 3',               type:'Auto'   },
-  { id:'cc-tomas',   label:'Conta Conjunta → Tomás',           desc:'50€ · automático dia 3',                      type:'Auto'   },
-  { id:'invest',     label:'Conta Conjunta → Investimentos',   desc:'150€ (XTB, Maclear, Trade Republic)',         type:'Manual' },
-  { id:'dep-prazo',  label:'Conta Conjunta → Dep. Prazo',      desc:'150€ · automático dia 2',                     type:'Auto'   },
-  { id:'ajc-escola', label:'AJC Nocas → Escola Tomás',         desc:'Restante com AJC Jojo',                       type:'Manual' },
-  { id:'gar-toi',    label:'Renda Garagem → Toi',              desc:'47,50€',                                      type:'Manual' },
-  { id:'gar-jb1',    label:'Renda Garagem → JB1 / Poupança',  desc:'47,50€ (ou poup. conjunta se JB1 > 5.500€)', type:'Manual' },
-  { id:'tomas-xtb',  label:'Tomás → XTB ETF MSCI World',      desc:'100€',                                        type:'Manual' },
-  { id:'natacao',    label:'Natação SCP → Poup. Conjunta',     desc:'35€ · automático dia 5 (set25–jul26)',        type:'Auto'   },
-  { id:'josi',       label:'Pagar Josi',                       desc:'Ver secção Josi para o total',                type:'Manual' },
-  { id:'coverflex',  label:'Supermercado via Coverflex',        desc:'Lembrete',                                    type:'Info'   },
-  { id:'sobras',     label:'Sobras Conta Conjunta → Poupança', desc:'No final do mês',                             type:'Info'   },
-  { id:'condominio', label:'Condomínio JB1',                   desc:'Quando aplicável · 53,43€/mês',              type:'Manual' },
+const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const MONTH_SHORT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+const DEFAULT_TASKS=[
+  {id:'nocas-cc',   label:'Nocas → Conta Conjunta',          desc:'1.050€',                                      type:'Manual'},
+  {id:'joao-cc',    label:'João → Conta Conjunta',           desc:'1.200€',                                      type:'Manual'},
+  {id:'jb1-cc',     label:'JB1 → Conta Conjunta',            desc:'250€ · automático dia 1',                     type:'Auto'},
+  {id:'jb1-poup',   label:'JB1 → Poupança Conjunta',         desc:'400€ se saldo JB1 ≥ 5.500€',                 type:'Manual'},
+  {id:'cc-nocas',   label:'Conta Conjunta → Nocas',          desc:'750€ renda · automático dia 2',               type:'Auto'},
+  {id:'cc-pai',     label:'Conta Conjunta → Pai',            desc:'750€ renda · automático dia 3',               type:'Auto'},
+  {id:'cc-tomas',   label:'Conta Conjunta → Tomás',          desc:'50€ · automático dia 3',                      type:'Auto'},
+  {id:'invest',     label:'Conta Conjunta → Investimentos',  desc:'150€ (XTB, Maclear, Trade Republic)',         type:'Manual'},
+  {id:'dep-prazo',  label:'Conta Conjunta → Dep. Prazo',     desc:'150€ · automático dia 2',                     type:'Auto'},
+  {id:'ajc-escola', label:'AJC Nocas → Escola Tomás',        desc:'Restante com AJC Jojo',                       type:'Manual'},
+  {id:'gar-toi',    label:'Renda Garagem → Toi',             desc:'47,50€',                                      type:'Manual'},
+  {id:'gar-jb1',    label:'Renda Garagem → JB1 / Poupança', desc:'47,50€ (ou poup. conjunta se JB1 > 5.500€)', type:'Manual'},
+  {id:'tomas-xtb',  label:'Tomás → XTB ETF MSCI World',     desc:'100€',                                        type:'Manual'},
+  {id:'natacao',    label:'Natação SCP → Poup. Conjunta',    desc:'35€ · automático dia 5 (set25–jul26)',        type:'Auto'},
+  {id:'josi',       label:'Pagar Josi',                      desc:'Ver secção Josi para o total',                type:'Manual'},
+  {id:'coverflex',  label:'Supermercado via Coverflex',       desc:'Lembrete',                                    type:'Info'},
+  {id:'sobras',     label:'Sobras Conta Conjunta → Poupança',desc:'No final do mês',                             type:'Info'},
+  {id:'condominio', label:'Condomínio JB1',                  desc:'Quando aplicável · 53,43€/mês',              type:'Manual'},
 ];
 
-const ACCOUNTS = [
-  { id:'ab_poup',   label:'Poupança Pessoal',    group:'AB Nocas'    },
-  { id:'ab_dp',     label:'DP JB1',              group:'AB Nocas'    },
-  { id:'tr_n_emerg',label:'Fundo de Emergência', group:'Trade Nocas' },
-  { id:'tr_n_conj', label:'Poupanças Conjuntas', group:'Trade Nocas' },
-  { id:'tr_n_pes',  label:'Poupanças Pessoais',  group:'Trade Nocas' },
-  { id:'tr_j_jb1',  label:'JB1',                group:'Trade João'  },
-  { id:'tr_j_poup', label:'Poupanças',           group:'Trade João'  },
+const DEFAULT_EXPENSES=[
+  // Monthly
+  {id:'e1', name:'Renda',             amount:750,   period:'monthly', month:null,  active:true,  note:''},
+  {id:'e2', name:'NET',               amount:31,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e3', name:'Alimentação',       amount:350,   period:'monthly', month:null,  active:true,  note:''},
+  {id:'e4', name:'Escola Tomás',      amount:552,   period:'monthly', month:null,  active:true,  note:'Mensalidade + alimentação'},
+  {id:'e5', name:'Natação Tomás',     amount:43,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e6', name:'Judo',              amount:47,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e7', name:'Combustível',       amount:60,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e8', name:'Via Verde',         amount:25,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e9', name:'Aluga-se Dono',     amount:105,   period:'monthly', month:null,  active:true,  note:'Creche canina Foxy'},
+  {id:'e10',name:'Veterinário',       amount:70,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e11',name:'Poupança Tomás',    amount:50,    period:'monthly', month:null,  active:true,  note:''},
+  {id:'e12',name:'Condomínio JB1',    amount:53.43, period:'monthly', month:null,  active:true,  note:''},
+  // Annual
+  {id:'e13',name:'Seguro Mini',       amount:290,   period:'annual',  month:0,     active:true,  note:'ACP Liberty Seguros'},
+  {id:'e14',name:'Revisão e Inspeção Mini', amount:200, period:'annual', month:0,  active:true,  note:''},
+  {id:'e15',name:'ACP',               amount:117.60,period:'annual',  month:0,     active:true,  note:''},
+  {id:'e16',name:'IMI JB1',           amount:143,   period:'annual',  month:0,     active:true,  note:'Pago em Janeiro/Fevereiro'},
+  {id:'e17',name:'Revisão e Inspeção KIA', amount:250, period:'annual', month:4,  active:true,  note:''},
+  {id:'e18',name:'Seguro KIA',        amount:217.46,period:'annual',  month:8,     active:true,  note:'ACP'},
+  {id:'e19',name:'IUC Mini',          amount:145.40,period:'annual',  month:11,    active:true,  note:''},
+  {id:'e20',name:'IMI JB2',           amount:317,   period:'annual',  month:4,     active:false, note:'Isento — administração de condomínio'},
 ];
 
-const ASSETS = [
-  { id:'sp500',    label:'S&P 500 (SXR8)',        platform:'Trade Republic' },
-  { id:'obrig',    label:'Obrigações',             platform:'Maclear'        },
-  { id:'reit',     label:'Imobiliário REIT',       platform:'XTB'            },
-  { id:'ouro',     label:'Ouro (Xetra-Gold)',      platform:'XTB'            },
-  { id:'ia',       label:'IA & Big Data (XAIX)',   platform:'XTB'            },
-  { id:'btc',      label:'Bitcoin (BTC)',           platform:'Trade Republic' },
-  { id:'ubiquity', label:'Ubiquity',               platform:'XTB'            },
-  { id:'tomas',    label:'Tomás — MSCI World',     platform:'XTB'            },
+const DEFAULT_VAULTS=[
+  {id:'v1',name:'Trade Nocas',fields:[
+    {id:'f1',label:'Total',type:'manual'},
+    {id:'f2',label:'Fundo de Emergência',type:'manual'},
+    {id:'f3',label:'Poupanças Pessoais',type:'manual'},
+    {id:'f4',label:'Poupanças Conjuntas',type:'calculated'},
+  ]},
+  {id:'v2',name:'Trade João',fields:[
+    {id:'f1',label:'Total',type:'manual'},
+    {id:'f2',label:'JB1',type:'manual'},
+    {id:'f3',label:'Poupanças',type:'calculated'},
+  ]},
 ];
 
-const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const DEFAULT_PLATFORMS=['Trade Republic','XTB','Maclear'];
 
-// ── Firebase helpers ─────────────────────────────────────────────────────────
+const DEFAULT_ASSETS=[
+  {id:'a1',label:'S&P 500 (SXR8)',       platform:'Trade Republic', auto:true,  autoAmount:100},
+  {id:'a2',label:'Obrigações',            platform:'Maclear',        auto:false, autoAmount:0},
+  {id:'a3',label:'Imobiliário REIT',      platform:'XTB',            auto:false, autoAmount:0},
+  {id:'a4',label:'Ouro (Xetra-Gold)',     platform:'XTB',            auto:false, autoAmount:0},
+  {id:'a5',label:'IA & Big Data (XAIX)',  platform:'XTB',            auto:false, autoAmount:0},
+  {id:'a6',label:'Bitcoin (BTC)',          platform:'Trade Republic', auto:true,  autoAmount:24},
+  {id:'a7',label:'Ubiquity',              platform:'XTB',            auto:false, autoAmount:0},
+  {id:'a8',label:'Tomás — MSCI World',   platform:'XTB',            auto:false, autoAmount:0},
+];
 
-const ld = async (key) => {
-  const raw = await window._fbLoad(key);
-  if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return raw; }
-};
-const sv = async (key, val) => window._fbSave(key, JSON.stringify(val));
+// ─── FIREBASE ─────────────────────────────────────────────────────────────────
 
-// ── Format helpers ────────────────────────────────────────────────────────────
+const ld = async k => { const r=await window._fbLoad(k); if(!r)return null; try{return JSON.parse(r);}catch{return r;} };
+const sv = async (k,v) => window._fbSave(k,JSON.stringify(v));
+const mkKey=(y,m)=>`${y}-${String(m+1).padStart(2,'0')}`;
 
-const fmt = n => (parseFloat(n)||0).toLocaleString('pt-PT',{style:'currency',currency:'EUR'});
-const fmtD = iso => { try { return new Date(iso).toLocaleDateString('pt-PT',{day:'2-digit',month:'short'}); } catch { return '—'; } };
-const fmtT = iso => { try { return new Date(iso).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
-const mkKey = (y,m) => `${y}-${String(m+1).padStart(2,'0')}`;
+// ─── FORMATTERS ───────────────────────────────────────────────────────────────
 
-// ── Shared UI ─────────────────────────────────────────────────────────────────
+const fmt=n=>(parseFloat(n)||0).toLocaleString('pt-PT',{style:'currency',currency:'EUR'});
+const fmtD=iso=>{try{return new Date(iso).toLocaleDateString('pt-PT',{day:'2-digit',month:'short'});}catch{return '—';}};
+const fmtT=iso=>{try{return new Date(iso).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});}catch{return '';}};
+const fmtDT=iso=>{try{return new Date(iso).toLocaleString('pt-PT',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});}catch{return '—';}};
 
-const Card = ({children, style={}}) => (
-  <div style={{background:'#111827',border:'1px solid #1f2937',borderRadius:'16px',padding:'16px',...style}}>
+// ─── SHARED UI ────────────────────────────────────────────────────────────────
+
+const Card=({children,style={},onClick})=>(
+  <div onClick={onClick} style={{background:'#111827',border:'1px solid #1f2937',borderRadius:'16px',padding:'16px',cursor:onClick?'pointer':'default',...style}}>
     {children}
   </div>
 );
 
-const SecTitle = ({children}) => (
-  <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',color:'#f9fafb',marginBottom:'14px',fontWeight:'600'}}>
-    {children}
-  </div>
+const SecTitle=({children})=>(
+  <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',color:'#f9fafb',marginBottom:'14px',fontWeight:'600'}}>{children}</div>
 );
 
-const Btn = ({children, onClick, variant='primary', disabled=false, style={}}) => {
-  const base = {padding:'12px 20px',borderRadius:'12px',fontSize:'14px',fontWeight:'600',border:'none',cursor:disabled?'not-allowed':'pointer',...style};
-  const v = {
-    primary:   {background:'linear-gradient(135deg,#059669,#10b981)',color:'#fff'},
-    secondary: {background:'#1f2937',color:'#9ca3af',border:'1px solid #374151'},
-    danger:    {background:'rgba(239,68,68,0.12)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'},
-    ghost:     {background:'none',color:'#6b7280',padding:'6px 10px'},
+const Btn=({children,onClick,variant='primary',disabled=false,style={}})=>{
+  const base={padding:'12px 20px',borderRadius:'12px',fontSize:'14px',fontWeight:'600',border:'none',cursor:disabled?'not-allowed':'pointer',transition:'opacity 0.15s,transform 0.1s',...style};
+  const v={
+    primary:{background:'linear-gradient(135deg,#059669,#10b981)',color:'#fff'},
+    secondary:{background:'#1f2937',color:'#9ca3af',border:'1px solid #374151'},
+    danger:{background:'rgba(239,68,68,0.12)',color:'#f87171',border:'1px solid rgba(239,68,68,0.2)'},
+    ghost:{background:'none',color:'#6b7280',padding:'6px 10px'},
+    warning:{background:'linear-gradient(135deg,#b45309,#f59e0b)',color:'#fff'},
   };
   return <button onClick={onClick} disabled={disabled} style={{...base,...v[variant],opacity:disabled?0.4:1}}>{children}</button>;
 };
 
-const Pill = ({label}) => {
-  const c = {Auto:{bg:'rgba(96,165,250,0.12)',text:'#60a5fa'},Manual:{bg:'rgba(245,158,11,0.12)',text:'#f59e0b'},Info:{bg:'rgba(107,114,128,0.15)',text:'#9ca3af'}};
-  const col = c[label]||c.Info;
+const Pill=({label})=>{
+  const c={Auto:{bg:'rgba(96,165,250,0.12)',text:'#60a5fa'},Manual:{bg:'rgba(245,158,11,0.12)',text:'#f59e0b'},Info:{bg:'rgba(107,114,128,0.15)',text:'#9ca3af'}};
+  const col=c[label]||c.Info;
   return <span style={{fontSize:'10px',padding:'2px 8px',borderRadius:'8px',background:col.bg,color:col.text,fontWeight:'500',flexShrink:0}}>{label}</span>;
 };
 
-const Field = ({label, value, onChange, type='text', placeholder=''}) => (
+const Field=({label,value,onChange,type='text',placeholder='',hint=''})=>(
   <div style={{marginBottom:'14px'}}>
     <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>{label}</label>
     <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
-      style={{width:'100%',padding:'12px 14px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}} />
+      style={{width:'100%',padding:'12px 14px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}/>
+    {hint&&<div style={{fontSize:'11px',color:'#4b5563',marginTop:'4px'}}>{hint}</div>}
   </div>
 );
 
-const Label = ({children}) => (
+const SelectField=({label,value,onChange,options})=>(
+  <div style={{marginBottom:'14px'}}>
+    <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>{label}</label>
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{width:'100%',padding:'12px 14px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+      {options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+    </select>
+  </div>
+);
+
+const Toggle=({value,onChange,label})=>(
+  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0'}}>
+    <span style={{fontSize:'14px',color:'#9ca3af'}}>{label}</span>
+    <div onClick={()=>onChange(!value)} style={{width:'44px',height:'24px',borderRadius:'12px',background:value?'#10b981':'#374151',cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}}>
+      <div style={{position:'absolute',top:'3px',left:value?'23px':'3px',width:'18px',height:'18px',borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}/>
+    </div>
+  </div>
+);
+
+const Lbl=({children})=>(
   <div style={{fontSize:'11px',color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'8px'}}>{children}</div>
 );
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
+const Divider=()=><div style={{borderTop:'1px solid #1f2937',margin:'12px 0'}}/>;
 
-const Modal = ({title, onClose, children}) => (
-  <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:50,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-    <div style={{background:'#111827',borderRadius:'24px 24px 0 0',width:'100%',maxWidth:'480px',maxHeight:'90vh',overflowY:'auto',padding:'24px 20px 48px',animation:'slideUp 0.25s ease'}}>
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+
+const Modal=({title,onClose,children,size='normal'})=>(
+  <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',zIndex:50,display:'flex',alignItems:'flex-end',justifyContent:'center',animation:'fadeIn 0.15s ease'}}>
+    <div style={{background:'#111827',borderRadius:'24px 24px 0 0',width:'100%',maxWidth:'480px',maxHeight:'92vh',overflowY:'auto',padding:'24px 20px 52px',animation:'slideUp 0.25s ease'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'22px'}}>
         <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',color:'#f9fafb',fontWeight:'600'}}>{title}</div>
-        <button onClick={onClose} style={{background:'#1f2937',border:'none',borderRadius:'50%',width:'34px',height:'34px',color:'#9ca3af',fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
+        <button onClick={onClose} style={{background:'#1f2937',border:'none',borderRadius:'50%',width:'36px',height:'36px',color:'#9ca3af',fontSize:'18px',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>✕</button>
       </div>
       {children}
     </div>
   </div>
 );
 
-// ── Screens ───────────────────────────────────────────────────────────────────
+const ConfirmModal=({title,message,onConfirm,onCancel,confirmLabel='Confirmar',variant='warning'})=>(
+  <Modal title={title} onClose={onCancel}>
+    <div style={{color:'#9ca3af',fontSize:'14px',lineHeight:1.6,marginBottom:'24px'}}>{message}</div>
+    <div style={{display:'flex',gap:'10px'}}>
+      <Btn onClick={onCancel} variant="secondary" style={{flex:1}}>Cancelar</Btn>
+      <Btn onClick={onConfirm} variant={variant==='danger'?'danger':'warning'} style={{flex:1}}>{confirmLabel}</Btn>
+    </div>
+  </Modal>
+);
 
-function Home({done, total, lastCofre, jH, jAmt, mk, inv, hist, cl, onNewMonth, onHistView}) {
-  const now = new Date();
-  const [confirm, setConfirm] = useState(false);
-  const pct = total > 0 ? Math.round((done/total)*100) : 0;
-  const monthInv = inv.filter(i=>i.mk===mk);
-  const invTotal = monthInv.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
-  const cofreTotal = lastCofre ? Object.values(lastCofre.vals).reduce((s,v)=>s+(parseFloat(v)||0),0) : null;
+// ─── TOAST ────────────────────────────────────────────────────────────────────
 
-  return (
+const Toast=({msg,ok})=>(
+  <div style={{position:'fixed',bottom:'90px',left:'50%',transform:'translateX(-50%)',background:ok?'#059669':'#dc2626',color:'#fff',padding:'9px 20px',borderRadius:'20px',fontSize:'13px',fontWeight:'600',zIndex:200,boxShadow:'0 4px 16px rgba(0,0,0,0.4)',animation:'toastIn 0.2s ease',whiteSpace:'nowrap',pointerEvents:'none'}}>
+    {msg}
+  </div>
+);
+
+// ─── PASSWORD SCREEN ──────────────────────────────────────────────────────────
+
+function PasswordScreen({onSuccess}){
+  const [pw,setPw]=useState('');
+  const [err,setErr]=useState(false);
+  const [loading,setLoading]=useState(false);
+
+  const check=async()=>{
+    setLoading(true);
+    const stored=await ld('app-password');
+    const correct=stored||'monimoni';
+    if(pw===correct){onSuccess();}
+    else{setErr(true);setPw('');setLoading(false);}
+  };
+
+  return(
+    <div style={{background:'#0d1117',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px'}}>
+      <div style={{fontFamily:"'Fraunces',serif",fontSize:'44px',color:'#10b981',letterSpacing:'-0.5px',lineHeight:1}}>Monimoni</div>
+      <div style={{color:'#374151',fontSize:'12px',letterSpacing:'3px',textTransform:'uppercase',margin:'8px 0 48px'}}>Gestão Familiar</div>
+      <div style={{width:'100%',maxWidth:'300px'}}>
+        <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr(false);}} onKeyDown={e=>e.key==='Enter'&&check()}
+          placeholder="Password" autoFocus
+          style={{width:'100%',padding:'14px 18px',background:'#111827',border:`1px solid ${err?'#ef4444':'#374151'}`,borderRadius:'14px',color:'#e5e7eb',fontSize:'16px',outline:'none',textAlign:'center',letterSpacing:'4px',marginBottom:'12px'}}/>
+        {err&&<div style={{color:'#f87171',fontSize:'13px',textAlign:'center',marginBottom:'12px'}}>Password incorreta</div>}
+        <Btn onClick={check} disabled={loading||!pw} style={{width:'100%',padding:'14px',fontSize:'16px'}}>{loading?'A verificar…':'Entrar'}</Btn>
+      </div>
+      <div style={{color:'#1f2937',fontSize:'11px',marginTop:'32px'}}>Password padrão: monimoni</div>
+    </div>
+  );
+}
+
+// ─── LOGIN SCREEN ─────────────────────────────────────────────────────────────
+
+function LoginScreen({onSelect}){
+  return(
+    <div style={{background:'#0d1117',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px'}}>
+      <div style={{fontFamily:"'Fraunces',serif",fontSize:'44px',color:'#10b981',letterSpacing:'-0.5px',lineHeight:1}}>Monimoni</div>
+      <div style={{color:'#374151',fontSize:'12px',letterSpacing:'3px',textTransform:'uppercase',margin:'8px 0 52px'}}>Gestão Familiar</div>
+      <div style={{color:'#6b7280',fontSize:'13px',marginBottom:'20px'}}>Quem és?</div>
+      {[{name:'Nocas',grad:'linear-gradient(135deg,#059669,#10b981)',emoji:'👩'},{name:'João',grad:'linear-gradient(135deg,#1d4ed8,#3b82f6)',emoji:'👨'}].map(({name,grad,emoji})=>(
+        <button key={name} onClick={()=>onSelect(name)} style={{width:'220px',padding:'18px',marginBottom:'12px',background:grad,borderRadius:'18px',color:'#fff',fontSize:'18px',fontWeight:'600',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',border:'none',cursor:'pointer',transition:'transform 0.15s',minHeight:'56px'}}>
+          {emoji}  {name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── HEADER ───────────────────────────────────────────────────────────────────
+
+function Header({user,month,year,onMenuAction}){
+  const [open,setOpen]=useState(false);
+  const ref=useRef();
+  useEffect(()=>{
+    const h=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    document.addEventListener('mousedown',h);
+    return()=>document.removeEventListener('mousedown',h);
+  },[]);
+  const action=a=>{setOpen(false);onMenuAction(a);};
+  return(
+    <div style={{background:'#111827',borderBottom:'1px solid #1f2937',padding:'14px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:30}}>
+      <div>
+        <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',color:'#10b981',lineHeight:1}}>Monimoni</div>
+        <div style={{color:'#4b5563',fontSize:'11px',marginTop:'2px',letterSpacing:'0.5px'}}>{month} {year}</div>
+      </div>
+      <div ref={ref} style={{position:'relative'}}>
+        <button onClick={()=>setOpen(o=>!o)} style={{background:'#1f2937',border:'1px solid #374151',borderRadius:'20px',padding:'8px 14px',color:'#9ca3af',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px',minHeight:'36px'}}>
+          {user==='Nocas'?'👩':'👨'} {user} <span style={{fontSize:'10px',color:'#4b5563'}}>▾</span>
+        </button>
+        {open&&(
+          <div style={{position:'absolute',right:0,top:'calc(100% + 8px)',background:'#1a2332',border:'1px solid #1f2937',borderRadius:'14px',minWidth:'180px',overflow:'hidden',boxShadow:'0 8px 24px rgba(0,0,0,0.5)',zIndex:40,animation:'fadeIn 0.15s ease'}}>
+            {[
+              {icon:'👤',label:'Mudar utilizador',action:'switch-user'},
+              {icon:'🔄',label:'Iniciar novo mês',action:'new-month'},
+              {icon:'⚙️',label:'Configurações',action:'settings'},
+              {icon:'🚪',label:'Logout',action:'logout'},
+            ].map(item=>(
+              <button key={item.action} onClick={()=>action(item.action)} style={{width:'100%',padding:'13px 16px',background:'none',border:'none',color:'#e5e7eb',fontSize:'14px',textAlign:'left',display:'flex',alignItems:'center',gap:'10px',transition:'background 0.15s',minHeight:'44px'}}>
+                <span>{item.icon}</span><span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+
+function Nav({tab,setTab,done,total}){
+  const items=[
+    {id:'home',  icon:'⊞',label:'Início'},
+    {id:'tasks', icon:'✓',label:'Tarefas',badge:`${done}/${total}`},
+    {id:'expenses',icon:'€',label:'Encargos'},
+    {id:'invest',icon:'↗',label:'Invest.'},
+    {id:'more',  icon:'···',label:'Mais'},
+  ];
+  return(
+    <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:'480px',background:'#111827',borderTop:'1px solid #1f2937',display:'flex',zIndex:20}}>
+      {items.map(it=>{
+        const active=tab===it.id;
+        return(
+          <button key={it.id} onClick={()=>setTab(it.id)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',color:active?'#10b981':'#4b5563',cursor:'pointer',transition:'color 0.2s',minHeight:'56px'}}>
+            <span style={{fontSize:it.id==='more'?'14px':'20px',lineHeight:1,fontWeight:it.id==='more'?'700':'400'}}>{it.icon}</span>
+            <span style={{fontSize:'10px',fontWeight:active?'600':'400'}}>{it.label}</span>
+            {it.badge&&<span style={{fontSize:'9px',color:active?'#10b981':'#374151'}}>{it.badge}</span>}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ─── SPLASH ───────────────────────────────────────────────────────────────────
+
+const Splash=({msg='A carregar…'})=>(
+  <div style={{background:'#0d1117',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+    <div style={{fontFamily:"'Fraunces',serif",fontSize:'36px',color:'#10b981',marginBottom:'8px'}}>Monimoni</div>
+    <div style={{color:'#374151',fontSize:'13px'}}>{msg}</div>
+  </div>
+);
+
+// ─── HOME ─────────────────────────────────────────────────────────────────────
+
+function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,hist,onNavigate,onHistView}){
+  const now=new Date(); const mo=now.getMonth();
+  const pct=total>0?Math.round((done/total)*100):0;
+  const monthInv=inv.filter(i=>i.mk===mk);
+  const invTotal=monthInv.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+  const jH=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+  const jAmt=jH*josiCfg.rate;
+
+  // Expenses calc
+  const activeExp=expenses.filter(e=>e.active);
+  const monthlyFixed=activeExp.filter(e=>e.period==='monthly').reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const thisMonthPeriodic=activeExp.filter(e=>e.period==='annual'&&e.month===mo);
+  const periodicTotal=thisMonthPeriodic.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const totalExpenses=monthlyFixed+periodicTotal;
+
+  return(
     <div style={{display:'flex',flexDirection:'column',gap:'14px',animation:'fadeUp 0.3s ease'}}>
-      <Card>
+      {/* Progress card - clickable to tasks */}
+      <Card onClick={()=>onNavigate('tasks')} style={{cursor:'pointer'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'14px'}}>
           <div>
             <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'4px'}}>Progresso do Mês</div>
-            <div style={{color:'#10b981',fontSize:'14px',fontWeight:'600',marginBottom:'6px'}}>{MONTHS[now.getMonth()]} {now.getFullYear()}</div>
+            <div style={{color:'#10b981',fontSize:'14px',fontWeight:'600',marginBottom:'6px'}}>{MONTHS[mo]} {now.getFullYear()}</div>
             <div style={{fontSize:'42px',fontWeight:'700',color:'#10b981',lineHeight:1,fontFamily:"'Fraunces',serif"}}>{pct}%</div>
           </div>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:'30px',fontWeight:'700',color:'#f9fafb'}}>{done}<span style={{color:'#374151',fontSize:'18px'}}>/{total}</span></div>
             <div style={{color:'#4b5563',fontSize:'12px'}}>tarefas</div>
+            <div style={{color:'#4b5563',fontSize:'11px',marginTop:'4px'}}>Ver tarefas →</div>
           </div>
         </div>
         <div style={{background:'#1f2937',borderRadius:'6px',height:'6px',overflow:'hidden'}}>
-          <div style={{width:`${pct}%`,height:'100%',background:'linear-gradient(90deg,#059669,#34d399)',borderRadius:'6px',transition:'width 0.6s ease'}} />
+          <div style={{width:`${pct}%`,height:'100%',background:'linear-gradient(90deg,#059669,#34d399)',borderRadius:'6px',transition:'width 0.6s ease'}}/>
         </div>
       </Card>
 
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
-        <Card style={{padding:'12px',textAlign:'center'}}>
-          <div style={{color:'#4b5563',fontSize:'10px',textTransform:'uppercase',marginBottom:'6px'}}>Josi</div>
-          <div style={{fontSize:'20px',fontWeight:'700',color:'#f59e0b'}}>{jH.toFixed(1)}h</div>
-          <div style={{color:'#6b7280',fontSize:'11px',marginTop:'2px'}}>{fmt(parseFloat(jAmt))}</div>
+      {/* Stats row */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+        {/* Encargos - clickable */}
+        <Card onClick={()=>onNavigate('expenses')} style={{cursor:'pointer'}}>
+          <div style={{color:'#4b5563',fontSize:'10px',textTransform:'uppercase',marginBottom:'8px'}}>Encargos {MONTH_SHORT[mo]}</div>
+          <div style={{fontSize:'18px',fontWeight:'700',color:'#f87171'}}>{fmt(totalExpenses)}</div>
+          {thisMonthPeriodic.length>0&&(
+            <div style={{marginTop:'8px',borderTop:'1px solid #1f2937',paddingTop:'8px'}}>
+              {thisMonthPeriodic.map(e=>(
+                <div key={e.id} style={{fontSize:'11px',color:'#f59e0b',display:'flex',justifyContent:'space-between',marginTop:'3px'}}>
+                  <span>⚠️ {e.name}</span><span>{fmt(e.amount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{color:'#4b5563',fontSize:'10px',marginTop:'6px'}}>Ver encargos →</div>
         </Card>
-        <Card style={{padding:'12px',textAlign:'center'}}>
-          <div style={{color:'#4b5563',fontSize:'10px',textTransform:'uppercase',marginBottom:'6px'}}>Cofres</div>
-          {cofreTotal!==null ? <>
-            <div style={{fontSize:'12px',fontWeight:'700',color:'#60a5fa',lineHeight:1.2}}>{fmt(cofreTotal)}</div>
-            <div style={{color:'#4b5563',fontSize:'10px',marginTop:'4px'}}>{fmtD(lastCofre.date)}</div>
-          </> : <div style={{color:'#374151',fontSize:'12px',paddingTop:'4px'}}>—</div>}
-        </Card>
-        <Card style={{padding:'12px',textAlign:'center'}}>
-          <div style={{color:'#4b5563',fontSize:'10px',textTransform:'uppercase',marginBottom:'6px'}}>Invest.</div>
-          {monthInv.length>0 ? <>
-            <div style={{fontSize:'12px',fontWeight:'700',color:'#34d399',lineHeight:1.2}}>{fmt(invTotal)}</div>
-            <div style={{color:'#4b5563',fontSize:'10px',marginTop:'4px'}}>{monthInv.length} reg.</div>
-          </> : <div style={{color:'#374151',fontSize:'12px',paddingTop:'4px'}}>—</div>}
+
+        {/* Josi - clickable */}
+        <Card onClick={()=>onNavigate('josi')} style={{cursor:'pointer'}}>
+          <div style={{color:'#4b5563',fontSize:'10px',textTransform:'uppercase',marginBottom:'8px'}}>Josi este mês</div>
+          <div style={{fontSize:'24px',fontWeight:'700',color:'#f59e0b',fontFamily:"'Fraunces',serif"}}>{jH.toFixed(1)}<span style={{fontSize:'14px'}}>h</span></div>
+          <div style={{fontSize:'14px',color:'#10b981',fontWeight:'600',marginTop:'4px'}}>{fmt(jAmt)}</div>
+          <div style={{color:'#4b5563',fontSize:'10px',marginTop:'6px'}}>Ver registo →</div>
         </Card>
       </div>
 
-      {done>0 && (() => {
-        const recent = TASKS.filter(t=>cl&&cl[t.id]?.done).slice(-3).reverse();
-        return (
+      {/* Invest - clickable */}
+      <Card onClick={()=>onNavigate('invest')} style={{cursor:'pointer'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{color:'#4b5563',fontSize:'10px',textTransform:'uppercase',marginBottom:'4px'}}>Investimentos {MONTH_SHORT[mo]}</div>
+            {monthInv.length>0
+              ?<div style={{fontSize:'20px',fontWeight:'700',color:'#34d399'}}>{fmt(invTotal)}</div>
+              :<div style={{color:'#374151',fontSize:'13px'}}>Sem registos este mês</div>
+            }
+          </div>
+          <div style={{color:'#4b5563',fontSize:'11px'}}>Ver →</div>
+        </div>
+      </Card>
+
+      {/* Recent tasks */}
+      {done>0&&(()=>{
+        const recent=DEFAULT_TASKS.filter(t=>cl&&cl[t.id]?.done).slice(-3).reverse();
+        if(!recent.length)return null;
+        return(
           <Card>
             <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Últimas Tarefas</div>
-            {recent.map(t => {
-              const s = cl?.[t.id];
-              return (
+            {recent.map(t=>{
+              const s=cl?.[t.id];
+              return(
                 <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid #1a2332'}}>
                   <div style={{fontSize:'13px',color:'#9ca3af',maxWidth:'65%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.label}</div>
                   <div style={{fontSize:'11px',color:'#10b981'}}>{s?.by} · {fmtT(s?.at)}</div>
@@ -247,62 +450,50 @@ function Home({done, total, lastCofre, jH, jAmt, mk, inv, hist, cl, onNewMonth, 
         );
       })()}
 
-      {hist.length>0 && (
+      {/* History */}
+      {hist.length>0&&(
         <Card>
           <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Histórico</div>
-          {hist.slice(0,4).map(h => {
-            const hDone = TASKS.filter(t=>h.data[t.id]?.done).length;
-            return (
-              <div key={h.key} onClick={()=>onHistView(h)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'1px solid #1a2332',cursor:'pointer'}}>
+          {hist.slice(0,4).map(h=>{
+            const hDone=DEFAULT_TASKS.filter(t=>h.data[t.id]?.done).length;
+            return(
+              <div key={h.key} onClick={()=>onHistView(h)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:'1px solid #1a2332',cursor:'pointer',minHeight:'44px'}}>
                 <div style={{fontSize:'14px',color:'#e5e7eb'}}>{h.label}</div>
-                <div style={{fontSize:'12px',color:hDone===TASKS.length?'#10b981':'#f59e0b',fontWeight:'600'}}>{hDone}/{TASKS.length} ✓</div>
+                <div style={{fontSize:'12px',color:hDone===DEFAULT_TASKS.length?'#10b981':'#f59e0b',fontWeight:'600'}}>{hDone}/{DEFAULT_TASKS.length} ✓</div>
               </div>
             );
           })}
         </Card>
       )}
-
-      <Card style={{border:'1px dashed #1f2937'}}>
-        {!confirm ? (
-          <Btn onClick={()=>setConfirm(true)} variant="secondary" style={{width:'100%'}}>🔄  Iniciar Novo Mês</Btn>
-        ) : (
-          <div>
-            <div style={{color:'#f59e0b',fontSize:'13px',textAlign:'center',marginBottom:'14px'}}>⚠️ O mês atual será arquivado e as tarefas e horas da Josi serão reiniciadas.</div>
-            <div style={{display:'flex',gap:'8px'}}>
-              <Btn onClick={()=>setConfirm(false)} variant="secondary" style={{flex:1}}>Cancelar</Btn>
-              <Btn onClick={()=>{onNewMonth();setConfirm(false);}} style={{flex:1,background:'linear-gradient(135deg,#b45309,#f59e0b)'}}>Confirmar</Btn>
-            </div>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
 
-function Tasks({tasks, cl, onToggle}) {
-  const [filter, setFilter] = useState('all');
-  const shown = filter==='all' ? tasks : tasks.filter(t=>t.type===filter);
-  const done  = tasks.filter(t=>cl[t.id]?.done).length;
-  return (
+// ─── TASKS ────────────────────────────────────────────────────────────────────
+
+function Tasks({tasks,cl,onToggle}){
+  const [filter,setFilter]=useState('all');
+  const shown=filter==='all'?tasks:tasks.filter(t=>t.type===filter);
+  const done=tasks.filter(t=>cl[t.id]?.done).length;
+  return(
     <div style={{animation:'fadeUp 0.3s ease'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
         <SecTitle>Tarefas</SecTitle>
         <div style={{color:'#6b7280',fontSize:'13px',fontWeight:'600'}}>{done}/{tasks.length}</div>
       </div>
-      <div style={{display:'flex',gap:'6px',marginBottom:'16px',overflowX:'auto',paddingBottom:'2px'}}>
+      <div style={{display:'flex',gap:'6px',marginBottom:'16px',overflowX:'auto',paddingBottom:'4px'}}>
         {['all','Manual','Auto','Info'].map(f=>(
-          <button key={f} onClick={()=>setFilter(f)} style={{padding:'5px 14px',borderRadius:'20px',fontSize:'12px',fontWeight:'500',whiteSpace:'nowrap',border:'none',cursor:'pointer',background:filter===f?'#10b981':'#1f2937',color:filter===f?'#fff':'#6b7280'}}>
+          <button key={f} onClick={()=>setFilter(f)} style={{padding:'7px 14px',borderRadius:'20px',fontSize:'12px',fontWeight:'500',whiteSpace:'nowrap',border:'none',cursor:'pointer',background:filter===f?'#10b981':'#1f2937',color:filter===f?'#fff':'#6b7280',minHeight:'36px'}}>
             {f==='all'?'Todas':f}
           </button>
         ))}
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-        {shown.map(task => {
-          const st = cl[task.id];
-          const isDone = !!st?.done;
-          return (
-            <div key={task.id} onClick={()=>onToggle(task.id)} style={{background:isDone?'rgba(16,185,129,0.06)':'#111827',border:`1px solid ${isDone?'rgba(16,185,129,0.25)':'#1f2937'}`,borderRadius:'14px',padding:'14px',display:'flex',alignItems:'flex-start',gap:'12px',cursor:'pointer',transition:'opacity 0.15s'}}>
-              <div style={{width:'22px',height:'22px',borderRadius:'50%',flexShrink:0,marginTop:'1px',background:isDone?'#10b981':'transparent',border:`2px solid ${isDone?'#10b981':'#374151'}`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'13px',transition:'all 0.2s'}}>
+        {shown.map(task=>{
+          const st=cl[task.id]; const isDone=!!st?.done;
+          return(
+            <div key={task.id} onClick={()=>onToggle(task.id)} style={{background:isDone?'rgba(16,185,129,0.06)':'#111827',border:`1px solid ${isDone?'rgba(16,185,129,0.25)':'#1f2937'}`,borderRadius:'14px',padding:'14px',display:'flex',alignItems:'flex-start',gap:'12px',cursor:'pointer',transition:'opacity 0.15s',minHeight:'60px'}}>
+              <div style={{width:'24px',height:'24px',borderRadius:'50%',flexShrink:0,marginTop:'1px',background:isDone?'#10b981':'transparent',border:`2px solid ${isDone?'#10b981':'#374151'}`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'14px',transition:'all 0.2s'}}>
                 {isDone&&'✓'}
               </div>
               <div style={{flex:1,minWidth:0}}>
@@ -310,7 +501,7 @@ function Tasks({tasks, cl, onToggle}) {
                 <div style={{fontSize:'12px',color:'#374151',marginTop:'2px'}}>{task.desc}</div>
                 {isDone&&<div style={{fontSize:'11px',color:'#059669',marginTop:'5px'}}>✓ {st.by} · {fmtD(st.at)} {fmtT(st.at)}</div>}
               </div>
-              <Pill label={task.type} />
+              <Pill label={task.type}/>
             </div>
           );
         })}
@@ -319,96 +510,209 @@ function Tasks({tasks, cl, onToggle}) {
   );
 }
 
-function Cofres({data, onNew}) {
-  const [open, setOpen] = useState(data[0]?.id??null);
-  const groups = {};
-  ACCOUNTS.forEach(a=>{ if(!groups[a.group]) groups[a.group]=[]; groups[a.group].push(a); });
-  return (
+// ─── EXPENSES ─────────────────────────────────────────────────────────────────
+
+function Expenses({expenses,onSave,user}){
+  const [modal,setModal]=useState(null); // null | 'add' | expense obj
+  const now=new Date(); const mo=now.getMonth();
+
+  const monthly=expenses.filter(e=>e.period==='monthly');
+  const annual=expenses.filter(e=>e.period==='annual');
+  const activeMonthly=monthly.filter(e=>e.active).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const activeAnnual=annual.filter(e=>e.active).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+
+  const toggle=async exp=>{
+    const next=expenses.map(e=>e.id===exp.id?{...e,active:!e.active}:e);
+    await onSave(next);
+  };
+
+  const save=async data=>{
+    let next;
+    if(data.id&&expenses.find(e=>e.id===data.id)){
+      next=expenses.map(e=>e.id===data.id?{...data,editedBy:user,editedAt:new Date().toISOString()}:e);
+    } else {
+      next=[...expenses,{...data,id:'e'+Date.now(),createdBy:user,createdAt:new Date().toISOString()}];
+    }
+    await onSave(next); setModal(null);
+  };
+
+  const del=async id=>{
+    const next=expenses.filter(e=>e.id!==id);
+    await onSave(next); setModal(null);
+  };
+
+  const ExpRow=({exp})=>(
+    <div onClick={()=>setModal(exp)} style={{display:'flex',alignItems:'center',gap:'12px',padding:'12px',borderRadius:'12px',background:exp.active?'#111827':'rgba(30,35,45,0.5)',border:`1px solid ${exp.active?'#1f2937':'#141920'}`,marginBottom:'8px',cursor:'pointer',minHeight:'52px',opacity:exp.active?1:0.55}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:'14px',color:exp.active?'#e5e7eb':'#4b5563',textDecoration:exp.active?'none':'line-through',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{exp.name}</div>
+        {exp.note&&<div style={{fontSize:'11px',color:'#374151',marginTop:'2px'}}>{exp.note}</div>}
+        {exp.period==='annual'&&<div style={{fontSize:'11px',color:exp.active?'#f59e0b':'#374151',marginTop:'2px'}}>{MONTHS[exp.month]}</div>}
+      </div>
+      <div style={{textAlign:'right',flexShrink:0}}>
+        <div style={{fontSize:'15px',fontWeight:'700',color:exp.active?'#f87171':'#374151'}}>{fmt(exp.amount)}</div>
+        {exp.period==='monthly'&&<div style={{fontSize:'10px',color:'#374151'}}>mensal</div>}
+      </div>
+      <div onClick={e=>{e.stopPropagation();toggle(exp);}} style={{width:'36px',height:'20px',borderRadius:'10px',background:exp.active?'#10b981':'#374151',cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}}>
+        <div style={{position:'absolute',top:'2px',left:exp.active?'18px':'2px',width:'16px',height:'16px',borderRadius:'50%',background:'#fff',transition:'left 0.2s'}}/>
+      </div>
+    </div>
+  );
+
+  return(
     <div style={{animation:'fadeUp 0.3s ease'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
-        <SecTitle>Cofres</SecTitle>
-        <Btn onClick={onNew} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>
+        <SecTitle>Encargos</SecTitle>
+        <Btn onClick={()=>setModal('add')} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>
       </div>
-      {data.length===0 ? (
-        <Card style={{textAlign:'center',padding:'40px 16px',color:'#374151'}}>
-          <div style={{fontSize:'40px',marginBottom:'10px'}}>◈</div>
-          <div style={{fontSize:'14px'}}>Ainda sem snapshots.<br/>Adiciona o primeiro registo.</div>
-        </Card>
-      ) : (
-        <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-          {data.map((entry,idx)=>{
-            const total = Object.values(entry.vals).reduce((s,v)=>s+(parseFloat(v)||0),0);
-            const isOpen = open===entry.id;
-            return (
-              <Card key={entry.id} style={{padding:'14px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={()=>setOpen(isOpen?null:entry.id)}>
-                  <div>
-                    <div style={{fontSize:'13px',color:'#6b7280'}}>{fmtD(entry.date)} · {entry.by}</div>
-                    {idx===0&&<div style={{fontSize:'11px',color:'#10b981',marginTop:'2px',fontWeight:'600'}}>● Mais recente</div>}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                    <div style={{fontSize:'18px',fontWeight:'700',color:'#60a5fa'}}>{fmt(total)}</div>
-                    <span style={{color:'#374151',fontSize:'12px'}}>{isOpen?'▲':'▼'}</span>
-                  </div>
-                </div>
-                {isOpen&&(
-                  <div style={{marginTop:'14px',borderTop:'1px solid #1f2937',paddingTop:'14px'}}>
-                    {Object.entries(groups).map(([grp,accts])=>{
-                      const grpTotal = accts.reduce((s,a)=>s+(parseFloat(entry.vals[a.id])||0),0);
-                      return (
-                        <div key={grp} style={{marginBottom:'14px'}}>
-                          <div style={{fontSize:'11px',color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'8px'}}>{grp}</div>
-                          {accts.map(a=>(
-                            <div key={a.id} style={{display:'flex',justifyContent:'space-between',padding:'5px 0'}}>
-                              <div style={{fontSize:'13px',color:'#6b7280'}}>{a.label}</div>
-                              <div style={{fontSize:'13px',color:'#e5e7eb',fontWeight:'500'}}>{fmt(parseFloat(entry.vals[a.id])||0)}</div>
-                            </div>
-                          ))}
-                          <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #1a2332',paddingTop:'5px',marginTop:'4px'}}>
-                            <div style={{fontSize:'12px',color:'#374151'}}>Total {grp}</div>
-                            <div style={{fontSize:'13px',color:'#60a5fa',fontWeight:'600'}}>{fmt(grpTotal)}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div style={{display:'flex',justifyContent:'space-between',borderTop:'2px solid #1f2937',paddingTop:'10px'}}>
-                      <div style={{fontSize:'14px',color:'#9ca3af',fontWeight:'600'}}>Total Global</div>
-                      <div style={{fontSize:'20px',color:'#60a5fa',fontWeight:'700'}}>{fmt(total)}</div>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+
+      {/* Summary */}
+      <Card style={{marginBottom:'16px',background:'linear-gradient(135deg,rgba(248,113,113,0.07),rgba(245,158,11,0.04))'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+          <div>
+            <div style={{color:'#6b7280',fontSize:'11px',textTransform:'uppercase',marginBottom:'4px'}}>Fixos/mês</div>
+            <div style={{fontSize:'22px',fontWeight:'700',color:'#f87171',fontFamily:"'Fraunces',serif"}}>{fmt(activeMonthly)}</div>
+          </div>
+          <div>
+            <div style={{color:'#6b7280',fontSize:'11px',textTransform:'uppercase',marginBottom:'4px'}}>Anuais (total)</div>
+            <div style={{fontSize:'22px',fontWeight:'700',color:'#f59e0b',fontFamily:"'Fraunces',serif"}}>{fmt(activeAnnual)}</div>
+          </div>
         </div>
+        {(() => {
+          const periodic=annual.filter(e=>e.active&&e.month===mo);
+          if(!periodic.length)return null;
+          return(
+            <div style={{marginTop:'12px',borderTop:'1px solid rgba(255,255,255,0.05)',paddingTop:'12px'}}>
+              <div style={{fontSize:'11px',color:'#f59e0b',fontWeight:'600',marginBottom:'6px'}}>⚠️ Este mês:</div>
+              {periodic.map(e=>(
+                <div key={e.id} style={{display:'flex',justifyContent:'space-between',fontSize:'13px',color:'#f59e0b',marginBottom:'3px'}}>
+                  <span>{e.name}</span><span>{fmt(e.amount)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </Card>
+
+      <Lbl>Fixos Mensais</Lbl>
+      {monthly.map(e=><ExpRow key={e.id} exp={e}/>)}
+      <div style={{height:'12px'}}/>
+      <Lbl>Anuais / Periódicos</Lbl>
+      {annual.map(e=><ExpRow key={e.id} exp={e}/>)}
+
+      {(modal==='add'||typeof modal==='object')&&(
+        <ExpenseModal
+          expense={modal==='add'?null:modal}
+          onSave={save}
+          onDelete={del}
+          onClose={()=>setModal(null)}
+        />
       )}
     </div>
   );
 }
 
-function Invest({data, mk, onNew}) {
-  const thisMo = data.filter(i=>i.mk===mk);
-  const past   = data.filter(i=>i.mk!==mk);
-  const byPlat = list => { const m={}; list.forEach(i=>{ if(!m[i.platform]) m[i.platform]=0; m[i.platform]+=parseFloat(i.amount)||0; }); return m; };
-  return (
+function ExpenseModal({expense,onSave,onDelete,onClose}){
+  const [name,setName]=useState(expense?.name||'');
+  const [amount,setAmount]=useState(expense?String(expense.amount):'');
+  const [period,setPeriod]=useState(expense?.period||'monthly');
+  const [month,setMonth]=useState(expense?.month??0);
+  const [note,setNote]=useState(expense?.note||'');
+  const [active,setActive]=useState(expense?.active!==false);
+  const [confirm,setConfirm]=useState(false);
+
+  const save=()=>{
+    if(!name||!amount)return;
+    onSave({...(expense||{}),name,amount:parseFloat(amount),period,month:period==='annual'?parseInt(month):null,note,active});
+  };
+
+  if(confirm)return(
+    <ConfirmModal title="Eliminar Encargo" message={`Tens a certeza que queres eliminar "${expense?.name}"?`}
+      confirmLabel="Eliminar" variant="danger" onConfirm={()=>onDelete(expense.id)} onCancel={()=>setConfirm(false)}/>
+  );
+
+  return(
+    <Modal title={expense?'Editar Encargo':'Novo Encargo'} onClose={onClose}>
+      <Field label="Nome" value={name} onChange={setName} placeholder="ex: Seguro Saúde"/>
+      <Field label="Valor (€)" type="number" value={amount} onChange={setAmount} placeholder="0,00"/>
+      <SelectField label="Periodicidade" value={period} onChange={setPeriod} options={[{value:'monthly',label:'Mensal'},{value:'annual',label:'Anual / Periódico'}]}/>
+      {period==='annual'&&(
+        <SelectField label="Mês" value={month} onChange={v=>setMonth(parseInt(v))} options={MONTHS.map((m,i)=>({value:i,label:m}))}/>
+      )}
+      <Field label="Nota (opcional)" value={note} onChange={setNote}/>
+      <Toggle value={active} onChange={setActive} label="Ativo"/>
+      <Divider/>
+      <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
+        {expense&&<Btn onClick={()=>setConfirm(true)} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={save} disabled={!name||!amount} style={{flex:1,padding:'14px'}}>{expense?'Guardar':'Adicionar'}</Btn>
+      </div>
+      {expense?.editedBy&&<div style={{fontSize:'11px',color:'#374151',textAlign:'center',marginTop:'10px'}}>Editado por {expense.editedBy} em {fmtDT(expense.editedAt)}</div>}
+    </Modal>
+  );
+}
+
+// ─── INVEST ───────────────────────────────────────────────────────────────────
+
+function Invest({inv,mk,assets,platforms,onSaveInv,onSaveAssets,onSavePlatforms,user}){
+  const [modal,setModal]=useState(null);
+  const [editItem,setEditItem]=useState(null);
+
+  const thisMo=inv.filter(i=>i.mk===mk);
+  const past=inv.filter(i=>i.mk!==mk);
+  const byPlat=list=>{const m={};list.forEach(i=>{if(!m[i.platform])m[i.platform]=0;m[i.platform]+=parseFloat(i.amount)||0;});return m;};
+
+  const saveEntry=async data=>{
+    let next;
+    if(editItem){
+      next=inv.map(i=>i.id===editItem.id?{...i,...data,editedBy:user,editedAt:new Date().toISOString()}:i);
+    } else {
+      next=[{id:Date.now(),date:new Date().toISOString(),mk,by:user,...data},...inv];
+    }
+    await onSaveInv(next); setModal(null); setEditItem(null);
+  };
+
+  const delEntry=async id=>{
+    const entry=inv.find(i=>i.id===id);
+    const next=inv.map(i=>i.id===id?{...i,deleted:true,deletedBy:user,deletedAt:new Date().toISOString()}:i).filter(i=>!i.deleted);
+    await onSaveInv(next); setModal(null); setEditItem(null);
+  };
+
+  const InvRow=({item})=>(
+    <Card style={{padding:'12px',marginBottom:'8px',cursor:'pointer'}} onClick={()=>{setEditItem(item);setModal('entry');}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+        <div style={{flex:1,minWidth:0,paddingRight:'8px'}}>
+          <div style={{fontSize:'14px',color:'#e5e7eb',fontWeight:'500',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.asset}</div>
+          <div style={{fontSize:'12px',color:'#6b7280',marginTop:'2px'}}>{item.platform} · {fmtD(item.date)} · {item.by}</div>
+          {item.editedBy&&<div style={{fontSize:'10px',color:'#374151',marginTop:'2px'}}>editado por {item.editedBy}</div>}
+        </div>
+        <div style={{fontSize:'18px',fontWeight:'700',color:'#34d399',flexShrink:0}}>{fmt(parseFloat(item.amount)||0)}</div>
+      </div>
+      {item.notes&&<div style={{fontSize:'12px',color:'#4b5563',marginTop:'8px',borderTop:'1px solid #1a2332',paddingTop:'8px'}}>{item.notes}</div>}
+    </Card>
+  );
+
+  return(
     <div style={{animation:'fadeUp 0.3s ease'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
         <SecTitle>Investimentos</SecTitle>
-        <Btn onClick={onNew} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>
+        <div style={{display:'flex',gap:'8px'}}>
+          <Btn onClick={()=>setModal('settings')} variant="secondary" style={{padding:'8px 12px',fontSize:'13px'}}>⚙️</Btn>
+          <Btn onClick={()=>{setEditItem(null);setModal('entry');}} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>
+        </div>
       </div>
-      {data.length===0 ? (
+
+      {inv.length===0?(
         <Card style={{textAlign:'center',padding:'40px 16px',color:'#374151'}}>
           <div style={{fontSize:'40px',marginBottom:'10px'}}>↗</div>
-          <div style={{fontSize:'14px'}}>Sem registos ainda.<br/>Adiciona o primeiro.</div>
+          <div style={{fontSize:'14px'}}>Sem registos ainda.</div>
         </Card>
-      ) : (
+      ):(
         <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
           {thisMo.length>0&&(
             <div>
-              <Label>Este Mês</Label>
-              {(() => {
-                const bp = byPlat(thisMo);
-                return (
+              <Lbl>Este Mês</Lbl>
+              {(()=>{
+                const bp=byPlat(thisMo);
+                return(
                   <Card style={{padding:'12px',marginBottom:'8px',display:'flex',gap:'8px',flexWrap:'wrap'}}>
                     {Object.entries(bp).map(([p,v])=>(
                       <div key={p} style={{background:'#1f2937',borderRadius:'8px',padding:'6px 12px',fontSize:'12px'}}>
@@ -424,40 +728,231 @@ function Invest({data, mk, onNew}) {
           )}
           {past.length>0&&(
             <div>
-              <Label>Anteriores</Label>
+              <Lbl>Anteriores</Lbl>
               {past.slice(0,30).map(i=><InvRow key={i.id} item={i}/>)}
             </div>
           )}
         </div>
       )}
+
+      {modal==='entry'&&(
+        <InvEntryModal
+          item={editItem}
+          assets={assets}
+          platforms={platforms}
+          onSave={saveEntry}
+          onDelete={delEntry}
+          onClose={()=>{setModal(null);setEditItem(null);}}
+        />
+      )}
+      {modal==='settings'&&(
+        <InvSettingsModal
+          assets={assets} platforms={platforms}
+          onSaveAssets={onSaveAssets} onSavePlatforms={onSavePlatforms}
+          onClose={()=>setModal(null)}
+        />
+      )}
     </div>
   );
 }
 
-const InvRow = ({item}) => (
-  <Card style={{padding:'12px',marginBottom:'8px'}}>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-      <div>
-        <div style={{fontSize:'14px',color:'#e5e7eb',fontWeight:'500'}}>{item.asset}</div>
-        <div style={{fontSize:'12px',color:'#6b7280',marginTop:'2px'}}>{item.platform} · {fmtD(item.date)} · {item.by}</div>
-      </div>
-      <div style={{fontSize:'18px',fontWeight:'700',color:'#34d399'}}>{fmt(parseFloat(item.amount)||0)}</div>
-    </div>
-    {item.notes&&<div style={{fontSize:'12px',color:'#4b5563',marginTop:'8px',borderTop:'1px solid #1a2332',paddingTop:'8px'}}>{item.notes}</div>}
-  </Card>
-);
+function InvEntryModal({item,assets,platforms,onSave,onDelete,onClose}){
+  const [assetId,setAssetId]=useState(item?.assetId||assets[0]?.id||'');
+  const [platform,setPlatform]=useState(item?.platform||assets[0]?.platform||platforms[0]||'');
+  const [amount,setAmount]=useState(item?String(item.amount):'');
+  const [notes,setNotes]=useState(item?.notes||'');
+  const [confirm,setConfirm]=useState(false);
 
-function JosiView({entries, cfg, hours, total, onNew, onCfgChange, onDelete}) {
-  const [editRate, setEditRate] = useState(false);
-  const [rateVal,  setRateVal]  = useState(String(cfg.rate));
-  const saveRate = () => { const r=parseFloat(rateVal); if(r>0){onCfgChange({...cfg,rate:r});setEditRate(false);} };
-  return (
+  const selAsset=assets.find(a=>a.id===assetId);
+  useEffect(()=>{ if(selAsset&&!item) setPlatform(selAsset.platform); },[assetId]);
+
+  const save=()=>{
+    if(!amount)return;
+    const label=selAsset?selAsset.label:(item?.asset||'');
+    onSave({assetId,asset:label,platform,amount:parseFloat(amount),notes});
+  };
+
+  if(confirm)return(
+    <ConfirmModal title="Eliminar Registo" message="Tens a certeza que queres eliminar este registo de investimento?"
+      confirmLabel="Eliminar" variant="danger" onConfirm={()=>onDelete(item.id)} onCancel={()=>setConfirm(false)}/>
+  );
+
+  return(
+    <Modal title={item?'Editar Investimento':'Novo Investimento'} onClose={onClose}>
+      <div style={{marginBottom:'14px'}}>
+        <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Ativo</label>
+        <select value={assetId} onChange={e=>setAssetId(e.target.value)} style={{width:'100%',padding:'12px 14px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+          {assets.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}
+        </select>
+      </div>
+      <SelectField label="Plataforma" value={platform} onChange={setPlatform} options={platforms.map(p=>({value:p,label:p}))}/>
+      <Field label="Montante (€)" type="number" value={amount} onChange={setAmount} placeholder="0,00"/>
+      <Field label="Notas (opcional)" value={notes} onChange={setNotes}/>
+      <Divider/>
+      <div style={{display:'flex',gap:'8px'}}>
+        {item&&<Btn onClick={()=>setConfirm(true)} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={save} disabled={!amount} style={{flex:1,padding:'14px'}}>{item?'Guardar':'Adicionar'}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function InvSettingsModal({assets,platforms,onSaveAssets,onSavePlatforms,onClose}){
+  const [tab,setTab]=useState('assets');
+  const [localAssets,setLocalAssets]=useState(assets);
+  const [localPlats,setLocalPlats]=useState(platforms);
+  const [newPlat,setNewPlat]=useState('');
+  const [editAsset,setEditAsset]=useState(null);
+
+  const savePlatform=async()=>{
+    if(!newPlat.trim())return;
+    const next=[...localPlats,newPlat.trim()];
+    setLocalPlats(next); await onSavePlatforms(next); setNewPlat('');
+  };
+  const delPlatform=async p=>{
+    const next=localPlats.filter(x=>x!==p);
+    setLocalPlats(next); await onSavePlatforms(next);
+  };
+  const saveAsset=async data=>{
+    let next;
+    if(data.id&&localAssets.find(a=>a.id===data.id)){
+      next=localAssets.map(a=>a.id===data.id?data:a);
+    } else {
+      next=[...localAssets,{...data,id:'a'+Date.now()}];
+    }
+    setLocalAssets(next); await onSaveAssets(next); setEditAsset(null);
+  };
+  const delAsset=async id=>{
+    const next=localAssets.filter(a=>a.id!==id);
+    setLocalAssets(next); await onSaveAssets(next); setEditAsset(null);
+  };
+
+  return(
+    <Modal title="Configurar Investimentos" onClose={onClose}>
+      <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
+        {['assets','platforms'].map(t=>(
+          <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:'8px',borderRadius:'10px',border:'none',cursor:'pointer',background:tab===t?'#10b981':'#1f2937',color:tab===t?'#fff':'#6b7280',fontSize:'13px',fontWeight:'500',minHeight:'36px'}}>
+            {t==='assets'?'Ativos':'Plataformas'}
+          </button>
+        ))}
+      </div>
+
+      {tab==='platforms'&&(
+        <div>
+          {localPlats.map(p=>(
+            <div key={p} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:'#1f2937',borderRadius:'10px',marginBottom:'8px',minHeight:'44px'}}>
+              <span style={{fontSize:'14px',color:'#e5e7eb'}}>{p}</span>
+              <button onClick={()=>delPlatform(p)} style={{background:'none',border:'none',color:'#f87171',fontSize:'16px',cursor:'pointer',padding:'4px 8px'}}>✕</button>
+            </div>
+          ))}
+          <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
+            <input value={newPlat} onChange={e=>setNewPlat(e.target.value)} placeholder="Nova plataforma…" onKeyDown={e=>e.key==='Enter'&&savePlatform()}
+              style={{flex:1,padding:'10px 12px',background:'#1f2937',border:'1px solid #374151',borderRadius:'10px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}/>
+            <Btn onClick={savePlatform} disabled={!newPlat.trim()} style={{padding:'10px 16px'}}>+</Btn>
+          </div>
+        </div>
+      )}
+
+      {tab==='assets'&&(
+        <div>
+          {editAsset?(
+            <AssetForm asset={editAsset==='new'?null:editAsset} platforms={localPlats} onSave={saveAsset} onDelete={editAsset!=='new'?()=>delAsset(editAsset.id):null} onBack={()=>setEditAsset(null)}/>
+          ):(
+            <>
+              {localAssets.map(a=>(
+                <div key={a.id} onClick={()=>setEditAsset(a)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',background:'#1f2937',borderRadius:'10px',marginBottom:'8px',cursor:'pointer',minHeight:'52px'}}>
+                  <div>
+                    <div style={{fontSize:'14px',color:'#e5e7eb'}}>{a.label}</div>
+                    <div style={{fontSize:'11px',color:'#4b5563'}}>{a.platform}{a.auto?` · auto ${fmt(a.autoAmount)}/mês`:''}</div>
+                  </div>
+                  <span style={{color:'#374151',fontSize:'14px'}}>›</span>
+                </div>
+              ))}
+              <Btn onClick={()=>setEditAsset('new')} variant="secondary" style={{width:'100%',marginTop:'8px'}}>+ Novo Ativo</Btn>
+            </>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function AssetForm({asset,platforms,onSave,onDelete,onBack}){
+  const [label,setLabel]=useState(asset?.label||'');
+  const [platform,setPlatform]=useState(asset?.platform||platforms[0]||'');
+  const [auto,setAuto]=useState(asset?.auto||false);
+  const [autoAmount,setAutoAmount]=useState(asset?String(asset.autoAmount||0):'');
+  const [confirm,setConfirm]=useState(false);
+
+  if(confirm)return(
+    <ConfirmModal title="Eliminar Ativo" message={`Eliminar "${asset?.label}"?`}
+      confirmLabel="Eliminar" variant="danger" onConfirm={()=>onDelete()} onCancel={()=>setConfirm(false)}/>
+  );
+
+  return(
+    <div>
+      <button onClick={onBack} style={{background:'none',border:'none',color:'#6b7280',fontSize:'13px',cursor:'pointer',marginBottom:'16px',display:'flex',alignItems:'center',gap:'4px',padding:'0'}}>← Voltar</button>
+      <Field label="Nome do Ativo" value={label} onChange={setLabel} placeholder="ex: S&P 500"/>
+      <SelectField label="Plataforma" value={platform} onChange={setPlatform} options={platforms.map(p=>({value:p,label:p}))}/>
+      <Toggle value={auto} onChange={setAuto} label="Investimento automático"/>
+      {auto&&<Field label="Valor mensal automático (€)" type="number" value={autoAmount} onChange={setAutoAmount} placeholder="0,00"/>}
+      <Divider/>
+      <div style={{display:'flex',gap:'8px',marginTop:'8px'}}>
+        {onDelete&&<Btn onClick={()=>setConfirm(true)} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={()=>onSave({...(asset||{}),label,platform,auto,autoAmount:parseFloat(autoAmount)||0})} disabled={!label} style={{flex:1,padding:'14px'}}>{asset?'Guardar':'Adicionar'}</Btn>
+      </div>
+    </div>
+  );
+}
+
+// ─── MORE (Cofres + Josi) ────────────────────────────────────────────────────
+
+function More({vaults,snapshots,josi,josiCfg,mk,user,onSaveSnapshots,onSaveJosi,onSaveJosiCfg,onSaveVaults,showToast}){
+  const [sub,setSub]=useState('josi'); // 'josi' | 'cofres'
+  return(
     <div style={{animation:'fadeUp 0.3s ease'}}>
+      <div style={{display:'flex',gap:'8px',marginBottom:'20px'}}>
+        {[{id:'josi',label:'✦ Josi'},{id:'cofres',label:'◈ Cofres'}].map(t=>(
+          <button key={t.id} onClick={()=>setSub(t.id)} style={{flex:1,padding:'10px',borderRadius:'12px',border:'none',cursor:'pointer',background:sub===t.id?'#10b981':'#1f2937',color:sub===t.id?'#fff':'#6b7280',fontSize:'14px',fontWeight:'500',minHeight:'44px'}}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {sub==='josi'&&<JosiView entries={josi} cfg={josiCfg} mk={mk} user={user} onSave={onSaveJosi} onCfgChange={onSaveJosiCfg} showToast={showToast}/>}
+      {sub==='cofres'&&<Cofres vaults={vaults} snapshots={snapshots} user={user} onSaveSnapshots={onSaveSnapshots} onSaveVaults={onSaveVaults} showToast={showToast}/>}
+    </div>
+  );
+}
+
+// ─── JOSI ─────────────────────────────────────────────────────────────────────
+
+function JosiView({entries,cfg,mk,user,onSave,onCfgChange,showToast}){
+  const [modal,setModal]=useState(false);
+  const [editRate,setEditRate]=useState(false);
+  const [rateVal,setRateVal]=useState(String(cfg.rate));
+  const hours=entries.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+  const total=hours*cfg.rate;
+
+  const saveRate=async()=>{
+    const r=parseFloat(rateVal);
+    if(r>0){await onCfgChange({...cfg,rate:r});setEditRate(false);showToast('Valor/hora atualizado ✓');}
+  };
+  const saveEntry=async data=>{
+    const next=[...entries,{id:Date.now(),by:user,at:new Date().toISOString(),...data}].sort((a,b)=>a.date.localeCompare(b.date));
+    await onSave(next); setModal(false); showToast('Guardado ✓');
+  };
+  const del=async id=>{
+    const next=entries.filter(e=>e.id!==id);
+    await onSave(next); showToast('Removido');
+  };
+
+  return(
+    <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
         <SecTitle>Josi</SecTitle>
-        <Btn onClick={onNew} style={{padding:'8px 16px',fontSize:'13px'}}>+ Dia</Btn>
+        <Btn onClick={()=>setModal(true)} style={{padding:'8px 16px',fontSize:'13px'}}>+ Dia</Btn>
       </div>
-      <Card style={{marginBottom:'12px',background:'linear-gradient(135deg,rgba(245,158,11,0.07),rgba(16,185,129,0.04))',borderColor:'rgba(245,158,11,0.15)'}}>
+      <Card style={{marginBottom:'12px',background:'linear-gradient(135deg,rgba(245,158,11,0.07),rgba(16,185,129,0.04))'}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'14px'}}>
           <div>
             <div style={{color:'#6b7280',fontSize:'11px',textTransform:'uppercase',marginBottom:'4px'}}>Horas este mês</div>
@@ -465,28 +960,28 @@ function JosiView({entries, cfg, hours, total, onNew, onCfgChange, onDelete}) {
           </div>
           <div>
             <div style={{color:'#6b7280',fontSize:'11px',textTransform:'uppercase',marginBottom:'4px'}}>A transferir</div>
-            <div style={{fontSize:'26px',fontWeight:'700',color:'#10b981',fontFamily:"'Fraunces',serif"}}>{fmt(parseFloat(total))}</div>
+            <div style={{fontSize:'26px',fontWeight:'700',color:'#10b981',fontFamily:"'Fraunces',serif"}}>{fmt(total)}</div>
           </div>
         </div>
         <div style={{borderTop:'1px solid rgba(255,255,255,0.05)',paddingTop:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
           <div style={{fontSize:'13px',color:'#6b7280'}}>Valor/hora: <span style={{color:'#f59e0b',fontWeight:'600'}}>{fmt(cfg.rate)}/h</span></div>
-          {!editRate ? (
+          {!editRate?(
             <Btn onClick={()=>setEditRate(true)} variant="ghost" style={{fontSize:'12px'}}>Editar</Btn>
-          ) : (
+          ):(
             <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-              <input value={rateVal} onChange={e=>setRateVal(e.target.value)} type="number" style={{width:'72px',padding:'6px 8px',background:'#1f2937',border:'1px solid #374151',borderRadius:'8px',color:'#e5e7eb',fontSize:'13px',outline:'none'}} />
+              <input value={rateVal} onChange={e=>setRateVal(e.target.value)} type="number" style={{width:'72px',padding:'6px 8px',background:'#1f2937',border:'1px solid #374151',borderRadius:'8px',color:'#e5e7eb',fontSize:'13px',outline:'none'}}/>
               <Btn onClick={saveRate} style={{padding:'6px 12px',fontSize:'12px'}}>OK</Btn>
               <Btn onClick={()=>setEditRate(false)} variant="ghost" style={{fontSize:'12px'}}>✕</Btn>
             </div>
           )}
         </div>
       </Card>
-      {entries.length===0 ? (
+      {entries.length===0?(
         <Card style={{textAlign:'center',padding:'40px 16px',color:'#374151'}}>
           <div style={{fontSize:'40px',marginBottom:'10px'}}>✦</div>
           <div style={{fontSize:'14px'}}>Nenhum dia registado este mês.</div>
         </Card>
-      ) : (
+      ):(
         <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
           {entries.map(e=>(
             <Card key={e.id} style={{padding:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -499,95 +994,384 @@ function JosiView({entries, cfg, hours, total, onNew, onCfgChange, onDelete}) {
                   <div style={{fontSize:'20px',fontWeight:'700',color:'#f59e0b'}}>{parseFloat(e.hours).toFixed(1)}h</div>
                   <div style={{fontSize:'12px',color:'#6b7280'}}>{fmt(parseFloat(e.hours)*cfg.rate)}</div>
                 </div>
-                <button onClick={()=>onDelete(e.id)} style={{background:'rgba(239,68,68,0.1)',border:'none',borderRadius:'8px',padding:'6px 8px',color:'#f87171',fontSize:'14px',cursor:'pointer'}}>✕</button>
+                <button onClick={()=>del(e.id)} style={{background:'rgba(239,68,68,0.1)',border:'none',borderRadius:'8px',padding:'8px 10px',color:'#f87171',fontSize:'14px',cursor:'pointer',minHeight:'36px'}}>✕</button>
               </div>
             </Card>
           ))}
           <div style={{display:'flex',justifyContent:'space-between',padding:'14px 4px',borderTop:'1px dashed #374151'}}>
             <div style={{color:'#9ca3af',fontSize:'14px',fontWeight:'500'}}>Total do mês</div>
-            <div style={{fontWeight:'700',color:'#10b981',fontSize:'18px'}}>{fmt(parseFloat(total))}</div>
+            <div style={{fontWeight:'700',color:'#10b981',fontSize:'18px'}}>{fmt(total)}</div>
           </div>
         </div>
+      )}
+      {modal&&(
+        <Modal title="Registar Horas" onClose={()=>setModal(false)}>
+          <JosiForm onSave={saveEntry} onClose={()=>setModal(false)}/>
+        </Modal>
       )}
     </div>
   );
 }
 
-// ── Modais de formulário ──────────────────────────────────────────────────────
+function JosiForm({onSave,onClose}){
+  const [date,setDate]=useState(new Date().toISOString().split('T')[0]);
+  const [hours,setHours]=useState('');
+  const [saving,setSaving]=useState(false);
+  const save=async()=>{if(!hours||!date)return;setSaving(true);await onSave({date,hours});setSaving(false);};
+  return(
+    <div>
+      <Field label="Data" type="date" value={date} onChange={setDate}/>
+      <Field label="Horas trabalhadas" type="number" value={hours} onChange={setHours} placeholder="ex: 3.5"/>
+      <Btn onClick={save} disabled={!hours||!date||saving} style={{width:'100%',padding:'14px',marginTop:'8px'}}>{saving?'A guardar…':'Guardar'}</Btn>
+    </div>
+  );
+}
 
-function CofreModal({last, onSave, onClose}) {
-  const [vals, setVals] = useState(()=>{
+// ─── COFRES ───────────────────────────────────────────────────────────────────
+
+function Cofres({vaults,snapshots,user,onSaveSnapshots,onSaveVaults,showToast}){
+  const [modal,setModal]=useState(null); // null | 'new-snapshot' | 'manage-vaults'
+  const [openSnap,setOpenSnap]=useState(snapshots[0]?.id??null);
+  const [editSnap,setEditSnap]=useState(null);
+  const [confirmDel,setConfirmDel]=useState(null);
+
+  const saveSnap=async(vals,existingId)=>{
+    let next;
+    if(existingId){
+      next=snapshots.map(s=>s.id===existingId?{...s,vals,editedBy:user,editedAt:new Date().toISOString()}:s);
+    } else {
+      next=[{id:Date.now(),date:new Date().toISOString(),by:user,vals},...snapshots];
+    }
+    await onSaveSnapshots(next); setModal(null); setEditSnap(null); showToast(existingId?'Snapshot atualizado ✓':'Snapshot guardado ✓');
+  };
+
+  const delSnap=async id=>{
+    const snap=snapshots.find(s=>s.id===id);
+    const next=snapshots.filter(s=>s.id!==id);
+    await onSaveSnapshots(next); setConfirmDel(null); showToast('Snapshot eliminado');
+  };
+
+  return(
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+        <SecTitle>Cofres</SecTitle>
+        <div style={{display:'flex',gap:'8px'}}>
+          <Btn onClick={()=>setModal('manage-vaults')} variant="secondary" style={{padding:'8px 12px',fontSize:'13px'}}>⚙️</Btn>
+          <Btn onClick={()=>setModal('new-snapshot')} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>
+        </div>
+      </div>
+
+      {snapshots.length===0?(
+        <Card style={{textAlign:'center',padding:'40px 16px',color:'#374151'}}>
+          <div style={{fontSize:'40px',marginBottom:'10px'}}>◈</div>
+          <div style={{fontSize:'14px'}}>Ainda sem snapshots.</div>
+        </Card>
+      ):(
+        <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+          {snapshots.map((snap,idx)=>{
+            const total=vaults.reduce((sum,v)=>{
+              const totalField=v.fields.find(f=>f.label==='Total');
+              return sum+(totalField?parseFloat(snap.vals[v.id+'_'+totalField.id])||0:0);
+            },0);
+            const isOpen=openSnap===snap.id;
+            return(
+              <Card key={snap.id} style={{padding:'14px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}} onClick={()=>setOpenSnap(isOpen?null:snap.id)}>
+                  <div>
+                    <div style={{fontSize:'13px',color:'#6b7280'}}>{fmtD(snap.date)} · {snap.by}</div>
+                    {idx===0&&<div style={{fontSize:'11px',color:'#10b981',marginTop:'2px',fontWeight:'600'}}>● Mais recente</div>}
+                    {snap.editedBy&&<div style={{fontSize:'10px',color:'#374151',marginTop:'1px'}}>editado por {snap.editedBy}</div>}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                    <div style={{fontSize:'18px',fontWeight:'700',color:'#60a5fa'}}>{fmt(total)}</div>
+                    <span style={{color:'#374151',fontSize:'12px'}}>{isOpen?'▲':'▼'}</span>
+                  </div>
+                </div>
+                {isOpen&&(
+                  <div style={{marginTop:'14px',borderTop:'1px solid #1f2937',paddingTop:'14px'}}>
+                    {vaults.map(v=>{
+                      const vTotal=parseFloat(snap.vals[v.id+'_'+(v.fields.find(f=>f.label==='Total')?.id)])||0;
+                      return(
+                        <div key={v.id} style={{marginBottom:'14px'}}>
+                          <div style={{fontSize:'11px',color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'8px'}}>{v.name}</div>
+                          {v.fields.map(f=>{
+                            let val;
+                            if(f.type==='calculated'){
+                              const manualSum=v.fields.filter(x=>x.type==='manual'&&x.label!=='Total').reduce((s,x)=>s+(parseFloat(snap.vals[v.id+'_'+x.id])||0),0);
+                              val=vTotal-manualSum;
+                            } else {
+                              val=parseFloat(snap.vals[v.id+'_'+f.id])||0;
+                            }
+                            return(
+                              <div key={f.id} style={{display:'flex',justifyContent:'space-between',padding:'5px 0'}}>
+                                <div style={{fontSize:'13px',color: f.type==='calculated'?'#10b981':'#6b7280'}}>{f.label}{f.type==='calculated'?' (calc.)':''}</div>
+                                <div style={{fontSize:'13px',color:'#e5e7eb',fontWeight:'500'}}>{fmt(val)}</div>
+                              </div>
+                            );
+                          })}
+                          <div style={{display:'flex',justifyContent:'space-between',borderTop:'1px solid #1a2332',paddingTop:'5px',marginTop:'4px'}}>
+                            <div style={{fontSize:'12px',color:'#374151'}}>Total {v.name}</div>
+                            <div style={{fontSize:'13px',color:'#60a5fa',fontWeight:'600'}}>{fmt(vTotal)}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{display:'flex',justifyContent:'space-between',borderTop:'2px solid #1f2937',paddingTop:'10px',marginBottom:'12px'}}>
+                      <div style={{fontSize:'14px',color:'#9ca3af',fontWeight:'600'}}>Total Global</div>
+                      <div style={{fontSize:'20px',color:'#60a5fa',fontWeight:'700'}}>{fmt(total)}</div>
+                    </div>
+                    <div style={{display:'flex',gap:'8px'}}>
+                      <Btn onClick={()=>{setEditSnap(snap);setModal('new-snapshot');}} variant="secondary" style={{flex:1,padding:'10px',fontSize:'13px'}}>✏️ Editar</Btn>
+                      <Btn onClick={()=>setConfirmDel(snap.id)} variant="danger" style={{padding:'10px 14px',fontSize:'13px'}}>🗑</Btn>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {(modal==='new-snapshot')&&(
+        <VaultSnapshotModal vaults={vaults} existing={editSnap} onSave={saveSnap} onClose={()=>{setModal(null);setEditSnap(null);}}/>
+      )}
+      {modal==='manage-vaults'&&(
+        <ManageVaultsModal vaults={vaults} onSave={async v=>{await onSaveVaults(v);showToast('Cofres atualizados ✓');}} onClose={()=>setModal(null)}/>
+      )}
+      {confirmDel&&(
+        <ConfirmModal title="Eliminar Snapshot" message="Tens a certeza que queres eliminar este snapshot?"
+          confirmLabel="Eliminar" variant="danger" onConfirm={()=>delSnap(confirmDel)} onCancel={()=>setConfirmDel(null)}/>
+      )}
+    </div>
+  );
+}
+
+function VaultSnapshotModal({vaults,existing,onSave,onClose}){
+  const [vals,setVals]=useState(()=>{
     const init={};
-    ACCOUNTS.forEach(a=>{init[a.id]=last?.[a.id]!==undefined?String(last[a.id]):'';});
+    vaults.forEach(v=>v.fields.filter(f=>f.type==='manual').forEach(f=>{
+      const k=v.id+'_'+f.id;
+      init[k]=existing?.vals[k]!==undefined?String(existing.vals[k]):'';
+    }));
     return init;
   });
-  const [saving, setSaving] = useState(false);
-  const groups={};
-  ACCOUNTS.forEach(a=>{if(!groups[a.group])groups[a.group]=[];groups[a.group].push(a);});
-  const total = Object.values(vals).reduce((s,v)=>s+(parseFloat(v)||0),0);
-  const save = async () => { setSaving(true); await onSave(vals); setSaving(false); };
-  return (
-    <Modal title="Novo Snapshot" onClose={onClose}>
-      {Object.entries(groups).map(([grp,accts])=>(
-        <div key={grp} style={{marginBottom:'20px'}}>
-          <div style={{fontSize:'12px',color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'10px',borderBottom:'1px solid #1f2937',paddingBottom:'6px'}}>{grp}</div>
-          {accts.map(a=><Field key={a.id} label={a.label} type="number" value={vals[a.id]} onChange={v=>setVals({...vals,[a.id]:v})} placeholder="0" />)}
+  const [saving,setSaving]=useState(false);
+
+  const getCalc=(v,currentVals)=>{
+    const totalField=v.fields.find(f=>f.label==='Total');
+    const total=parseFloat(currentVals[v.id+'_'+(totalField?.id)])||0;
+    const manualSum=v.fields.filter(f=>f.type==='manual'&&f.label!=='Total').reduce((s,f)=>s+(parseFloat(currentVals[v.id+'_'+f.id])||0),0);
+    return total-manualSum;
+  };
+
+  const save=async()=>{setSaving(true);await onSave(vals,existing?.id);setSaving(false);};
+
+  return(
+    <Modal title={existing?'Editar Snapshot':'Novo Snapshot'} onClose={onClose}>
+      {vaults.map(v=>(
+        <div key={v.id} style={{marginBottom:'20px'}}>
+          <div style={{fontSize:'12px',color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'10px',borderBottom:'1px solid #1f2937',paddingBottom:'6px'}}>{v.name}</div>
+          {v.fields.filter(f=>f.type==='manual').map(f=>(
+            <Field key={f.id} label={f.label} type="number" value={vals[v.id+'_'+f.id]||''} onChange={val=>setVals({...vals,[v.id+'_'+f.id]:val})} placeholder="0"/>
+          ))}
+          {v.fields.filter(f=>f.type==='calculated').map(f=>{
+            const calc=getCalc(v,vals);
+            return(
+              <div key={f.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 14px',background:'rgba(16,185,129,0.06)',border:'1px solid rgba(16,185,129,0.15)',borderRadius:'12px',marginBottom:'14px'}}>
+                <div>
+                  <div style={{fontSize:'11px',color:'#4b5563',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'2px'}}>{f.label}</div>
+                  <div style={{fontSize:'11px',color:'#374151'}}>calculado automaticamente</div>
+                </div>
+                <div style={{fontSize:'18px',fontWeight:'700',color:'#10b981'}}>{fmt(calc)}</div>
+              </div>
+            );
+          })}
         </div>
       ))}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 0',borderTop:'1px solid #374151',marginBottom:'20px'}}>
-        <div style={{color:'#9ca3af',fontSize:'14px'}}>Total</div>
-        <div style={{fontSize:'24px',fontWeight:'700',color:'#60a5fa',fontFamily:"'Fraunces',serif"}}>{fmt(total)}</div>
-      </div>
       <Btn onClick={save} disabled={saving} style={{width:'100%',padding:'14px'}}>{saving?'A guardar…':'Guardar Snapshot'}</Btn>
     </Modal>
   );
 }
 
-function InvModal({onSave, onClose}) {
-  const [assetId, setAssetId] = useState(ASSETS[0].id);
-  const [amount,  setAmount]  = useState('');
-  const [notes,   setNotes]   = useState('');
-  const [saving,  setSaving]  = useState(false);
-  const sel = ASSETS.find(a=>a.id===assetId)||ASSETS[0];
-  const save = async () => { if(!amount) return; setSaving(true); await onSave({asset:sel.label,platform:sel.platform,amount,notes}); setSaving(false); };
-  return (
-    <Modal title="Novo Investimento" onClose={onClose}>
+function ManageVaultsModal({vaults,onSave,onClose}){
+  const [local,setLocal]=useState(vaults);
+  const [editV,setEditV]=useState(null);
+
+  const saveVault=async v=>{
+    let next;
+    if(v.id&&local.find(x=>x.id===v.id)){next=local.map(x=>x.id===v.id?v:x);}
+    else{next=[...local,{...v,id:'v'+Date.now()}];}
+    setLocal(next); await onSave(next); setEditV(null);
+  };
+  const delVault=async id=>{
+    const next=local.filter(v=>v.id!==id);
+    setLocal(next); await onSave(next); setEditV(null);
+  };
+
+  return(
+    <Modal title="Gerir Cofres" onClose={onClose}>
+      {editV?(
+        <VaultForm vault={editV==='new'?null:editV} onSave={saveVault} onDelete={editV!=='new'?()=>delVault(editV.id):null} onBack={()=>setEditV(null)}/>
+      ):(
+        <>
+          {local.map(v=>(
+            <div key={v.id} onClick={()=>setEditV(v)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:'#1f2937',borderRadius:'12px',marginBottom:'8px',cursor:'pointer',minHeight:'52px'}}>
+              <div>
+                <div style={{fontSize:'14px',color:'#e5e7eb'}}>{v.name}</div>
+                <div style={{fontSize:'11px',color:'#4b5563'}}>{v.fields.length} campos</div>
+              </div>
+              <span style={{color:'#374151',fontSize:'14px'}}>›</span>
+            </div>
+          ))}
+          <Btn onClick={()=>setEditV('new')} variant="secondary" style={{width:'100%',marginTop:'8px'}}>+ Novo Cofre</Btn>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function VaultForm({vault,onSave,onDelete,onBack}){
+  const [name,setName]=useState(vault?.name||'');
+  const [fields,setFields]=useState(vault?.fields||[{id:'f1',label:'Total',type:'manual'}]);
+  const [newField,setNewField]=useState('');
+  const [newFieldType,setNewFieldType]=useState('manual');
+  const [confirm,setConfirm]=useState(false);
+
+  const addField=()=>{
+    if(!newField.trim())return;
+    setFields([...fields,{id:'f'+Date.now(),label:newField.trim(),type:newFieldType}]);
+    setNewField('');
+  };
+  const delField=id=>setFields(fields.filter(f=>f.id!==id));
+
+  if(confirm)return(
+    <ConfirmModal title="Eliminar Cofre" message={`Eliminar "${vault?.name}"?`}
+      confirmLabel="Eliminar" variant="danger" onConfirm={()=>onDelete()} onCancel={()=>setConfirm(false)}/>
+  );
+
+  return(
+    <div>
+      <button onClick={onBack} style={{background:'none',border:'none',color:'#6b7280',fontSize:'13px',cursor:'pointer',marginBottom:'16px',display:'flex',alignItems:'center',gap:'4px',padding:'0'}}>← Voltar</button>
+      <Field label="Nome do Cofre" value={name} onChange={setName} placeholder="ex: Trade Republic"/>
       <div style={{marginBottom:'14px'}}>
-        <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Ativo</label>
-        <select value={assetId} onChange={e=>setAssetId(e.target.value)} style={{width:'100%',padding:'12px 14px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
-          {ASSETS.map(a=><option key={a.id} value={a.id}>{a.label}</option>)}
-        </select>
+        <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'8px'}}>Campos</label>
+        {fields.map(f=>(
+          <div key={f.id} style={{display:'flex',alignItems:'center',gap:'8px',padding:'8px 12px',background:'#1f2937',borderRadius:'10px',marginBottom:'6px'}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:'13px',color:'#e5e7eb'}}>{f.label}</div>
+              <div style={{fontSize:'10px',color:f.type==='calculated'?'#10b981':'#6b7280'}}>{f.type==='calculated'?'Calculado':'Manual'}</div>
+            </div>
+            {f.label!=='Total'&&<button onClick={()=>delField(f.id)} style={{background:'none',border:'none',color:'#f87171',cursor:'pointer',fontSize:'16px',padding:'4px 6px'}}>✕</button>}
+          </div>
+        ))}
+        <div style={{display:'flex',gap:'6px',marginTop:'8px'}}>
+          <input value={newField} onChange={e=>setNewField(e.target.value)} placeholder="Novo campo…" onKeyDown={e=>e.key==='Enter'&&addField()}
+            style={{flex:1,padding:'9px 12px',background:'#1f2937',border:'1px solid #374151',borderRadius:'10px',color:'#e5e7eb',fontSize:'13px',outline:'none'}}/>
+          <select value={newFieldType} onChange={e=>setNewFieldType(e.target.value)} style={{padding:'9px 8px',background:'#1f2937',border:'1px solid #374151',borderRadius:'10px',color:'#e5e7eb',fontSize:'12px',outline:'none'}}>
+            <option value="manual">Manual</option>
+            <option value="calculated">Calculado</option>
+          </select>
+          <Btn onClick={addField} disabled={!newField.trim()} style={{padding:'9px 14px'}}>+</Btn>
+        </div>
       </div>
-      <div style={{marginBottom:'14px',padding:'10px 14px',background:'rgba(96,165,250,0.06)',borderRadius:'10px',border:'1px solid rgba(96,165,250,0.15)'}}>
-        <div style={{fontSize:'11px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Plataforma</div>
-        <div style={{fontSize:'14px',color:'#60a5fa',fontWeight:'500'}}>{sel.platform}</div>
+      <Divider/>
+      <div style={{display:'flex',gap:'8px'}}>
+        {onDelete&&<Btn onClick={()=>setConfirm(true)} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={()=>onSave({...(vault||{}),name,fields})} disabled={!name} style={{flex:1,padding:'14px'}}>{vault?'Guardar':'Adicionar'}</Btn>
       </div>
-      <Field label="Montante (€)" type="number" value={amount} onChange={setAmount} placeholder="0,00" />
-      <Field label="Notas (opcional)" value={notes} onChange={setNotes} />
-      <Btn onClick={save} disabled={!amount||saving} style={{width:'100%',padding:'14px',marginTop:'8px'}}>{saving?'A guardar…':'Guardar'}</Btn>
+    </div>
+  );
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+
+function Settings({tasks,onSaveTasks,user,onClose,showToast}){
+  const [editTask,setEditTask]=useState(null);
+  const [confirmDel,setConfirmDel]=useState(null);
+
+  const saveTask=async(data,affect)=>{
+    let next;
+    const now=new Date().toISOString();
+    if(data.id&&tasks.find(t=>t.id===data.id)){
+      next=tasks.map(t=>t.id===data.id?{...data,editedBy:user,editedAt:now,affect}:t);
+    } else {
+      next=[...tasks,{...data,id:'t'+Date.now(),createdBy:user,createdAt:now}];
+    }
+    await onSaveTasks(next); setEditTask(null); showToast('Tarefa guardada ✓');
+  };
+
+  const delTask=async(id,affect)=>{
+    const next=tasks.filter(t=>t.id!==id).map(t=>({...t,deletedBy:user,deletedAt:new Date().toISOString()}));
+    const filtered=tasks.filter(t=>t.id!==id);
+    await onSaveTasks(filtered); setConfirmDel(null); setEditTask(null); showToast('Tarefa eliminada');
+  };
+
+  if(editTask){
+    return(
+      <Modal title={editTask==='new'?'Nova Tarefa':'Editar Tarefa'} onClose={()=>setEditTask(null)}>
+        <TaskForm task={editTask==='new'?null:editTask} onSave={saveTask} onDelete={editTask!=='new'?setConfirmDel:null} onBack={()=>setEditTask(null)}/>
+        {confirmDel&&(
+          <ConfirmModal title="Eliminar Tarefa" message="Esta tarefa será eliminada. Confirmas?"
+            confirmLabel="Eliminar" variant="danger"
+            onConfirm={()=>delTask(confirmDel.id,confirmDel.affect)}
+            onCancel={()=>setConfirmDel(null)}/>
+        )}
+      </Modal>
+    );
+  }
+
+  return(
+    <Modal title="Configurações" onClose={onClose}>
+      <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Gerir Tarefas</div>
+      {tasks.map(t=>(
+        <div key={t.id} onClick={()=>setEditTask(t)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:'#1f2937',borderRadius:'12px',marginBottom:'8px',cursor:'pointer',minHeight:'52px'}}>
+          <div style={{flex:1,minWidth:0,paddingRight:'8px'}}>
+            <div style={{fontSize:'13px',color:'#e5e7eb',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.label}</div>
+            <div style={{fontSize:'10px',color:'#4b5563',marginTop:'2px'}}>{t.type}</div>
+          </div>
+          <span style={{color:'#374151',fontSize:'14px',flexShrink:0}}>›</span>
+        </div>
+      ))}
+      <Btn onClick={()=>setEditTask('new')} variant="secondary" style={{width:'100%',marginTop:'8px'}}>+ Nova Tarefa</Btn>
     </Modal>
   );
 }
 
-function JosiModal({onSave, onClose}) {
-  const today = new Date().toISOString().split('T')[0];
-  const [date,   setDate]   = useState(today);
-  const [hours,  setHours]  = useState('');
-  const [saving, setSaving] = useState(false);
-  const save = async () => { if(!hours||!date) return; setSaving(true); await onSave({date,hours}); setSaving(false); };
-  return (
-    <Modal title="Registar Horas da Josi" onClose={onClose}>
-      <Field label="Data" type="date" value={date} onChange={setDate} />
-      <Field label="Horas trabalhadas" type="number" value={hours} onChange={setHours} placeholder="ex: 3.5" />
-      <Btn onClick={save} disabled={!hours||!date||saving} style={{width:'100%',padding:'14px',marginTop:'8px'}}>{saving?'A guardar…':'Guardar'}</Btn>
-    </Modal>
+function TaskForm({task,onSave,onDelete,onBack}){
+  const [label,setLabel]=useState(task?.label||'');
+  const [desc,setDesc]=useState(task?.desc||'');
+  const [type,setType]=useState(task?.type||'Manual');
+  const [affect,setAffect]=useState('future');
+
+  const save=()=>{
+    if(!label)return;
+    onSave({...(task||{}),label,desc,type},affect);
+  };
+
+  return(
+    <div>
+      <Field label="Nome da Tarefa" value={label} onChange={setLabel} placeholder="ex: Pagar seguro"/>
+      <Field label="Descrição" value={desc} onChange={setDesc} placeholder="ex: 290€ · Janeiro"/>
+      <SelectField label="Tipo" value={type} onChange={setType} options={[{value:'Manual',label:'Manual'},{value:'Auto',label:'Automático'},{value:'Info',label:'Info / Lembrete'}]}/>
+      {task&&(
+        <SelectField label="Aplicar alteração a" value={affect} onChange={setAffect} options={[{value:'future',label:'Só meses futuros'},{value:'current',label:'Mês atual e futuros'}]}/>
+      )}
+      <Divider/>
+      <div style={{display:'flex',gap:'8px'}}>
+        {onDelete&&<Btn onClick={()=>onDelete({id:task.id,affect})} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={save} disabled={!label} style={{flex:1,padding:'14px'}}>{task?'Guardar':'Adicionar'}</Btn>
+      </div>
+      {task?.editedBy&&<div style={{fontSize:'11px',color:'#374151',textAlign:'center',marginTop:'10px'}}>Editado por {task.editedBy} em {fmtDT(task.editedAt)}</div>}
+    </div>
   );
 }
 
-function HistModal({entry, onClose}) {
-  const done    = TASKS.filter(t=>entry.data[t.id]?.done);
-  const notDone = TASKS.filter(t=>!entry.data[t.id]?.done);
-  return (
+// ─── HIST MODAL ───────────────────────────────────────────────────────────────
+
+function HistModal({entry,onClose}){
+  const done=DEFAULT_TASKS.filter(t=>entry.data[t.id]?.done);
+  const notDone=DEFAULT_TASKS.filter(t=>!entry.data[t.id]?.done);
+  return(
     <Modal title={entry.label} onClose={onClose}>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'20px'}}>
         <div style={{background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.2)',borderRadius:'12px',padding:'14px',textAlign:'center'}}>
@@ -601,9 +1385,9 @@ function HistModal({entry, onClose}) {
       </div>
       {done.length>0&&(
         <div style={{marginBottom:'16px'}}>
-          <Label>✓ Concluídas</Label>
+          <Lbl>✓ Concluídas</Lbl>
           {done.map(t=>(
-            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid #1a2332'}}>
+            <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid #1a2332',minHeight:'36px'}}>
               <div style={{fontSize:'13px',color:'#9ca3af',flex:1,paddingRight:'8px'}}>{t.label}</div>
               <div style={{fontSize:'11px',color:'#059669',flexShrink:0}}>{entry.data[t.id].by} · {fmtD(entry.data[t.id].at)}</div>
             </div>
@@ -612,7 +1396,7 @@ function HistModal({entry, onClose}) {
       )}
       {notDone.length>0&&(
         <div style={{marginBottom:'16px'}}>
-          <Label>✗ Por fazer</Label>
+          <Lbl>✗ Por fazer</Lbl>
           {notDone.map(t=>(
             <div key={t.id} style={{padding:'7px 0',borderBottom:'1px solid #1a2332'}}>
               <div style={{fontSize:'13px',color:'#374151',textDecoration:'line-through'}}>{t.label}</div>
@@ -621,196 +1405,163 @@ function HistModal({entry, onClose}) {
         </div>
       )}
       <div style={{padding:'10px 12px',background:'#1f2937',borderRadius:'8px',fontSize:'11px',color:'#4b5563'}}>
-        Arquivado em {fmtD(entry.at)} por {entry.by}
+        Arquivado em {fmtDT(entry.at)} por {entry.by}
       </div>
     </Modal>
   );
 }
 
-// ── Header & Nav ──────────────────────────────────────────────────────────────
+// ─── NEW MONTH MODAL ──────────────────────────────────────────────────────────
 
-const Header = ({user, onLogout, month, year}) => (
-  <div style={{background:'#111827',borderBottom:'1px solid #1f2937',padding:'14px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:20}}>
-    <div>
-      <div style={{fontFamily:"'Fraunces',serif",fontSize:'22px',color:'#10b981',lineHeight:1}}>Monimoni</div>
-      <div style={{color:'#4b5563',fontSize:'11px',marginTop:'2px',letterSpacing:'0.5px'}}>{month} {year}</div>
-    </div>
-    <button onClick={onLogout} style={{background:'#1f2937',border:'1px solid #374151',borderRadius:'20px',padding:'6px 14px',color:'#9ca3af',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'6px'}}>
-      {user==='Nocas'?'👩':'👨'} {user}
-    </button>
-  </div>
-);
+function NewMonthModal({currentMk,hist,onConfirm,onClose}){
+  const now=new Date(); const mo=now.getMonth(); const yr=now.getFullYear();
+  const nextMo=(mo+1)%12; const nextYr=mo===11?yr+1:yr;
+  const nextMk=mkKey(nextYr,nextMo);
+  const alreadyExists=hist.some(h=>h.key===nextMk);
+  const currentLabel=`${MONTHS[mo]} ${yr}`;
+  const nextLabel=`${MONTHS[nextMo]} ${nextYr}`;
 
-const Nav = ({tab, setTab, done, total}) => {
-  const items = [
-    {id:'home',   icon:'⊞', label:'Início'},
-    {id:'tasks',  icon:'✓', label:'Tarefas', badge:`${done}/${total}`},
-    {id:'cofres', icon:'◈', label:'Cofres'},
-    {id:'invest', icon:'↗', label:'Invest.'},
-    {id:'josi',   icon:'✦', label:'Josi'},
-  ];
-  return (
-    <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:'480px',background:'#111827',borderTop:'1px solid #1f2937',display:'flex',zIndex:20}}>
-      {items.map(it=>{
-        const active = tab===it.id;
-        return (
-          <button key={it.id} onClick={()=>setTab(it.id)} style={{flex:1,padding:'10px 4px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',color:active?'#10b981':'#4b5563',cursor:'pointer',transition:'color 0.2s'}}>
-            <span style={{fontSize:'20px',lineHeight:1}}>{it.icon}</span>
-            <span style={{fontSize:'10px',fontWeight:active?'600':'400'}}>{it.label}</span>
-            {it.badge&&<span style={{fontSize:'9px',color:active?'#10b981':'#374151'}}>{it.badge}</span>}
-          </button>
-        );
-      })}
-    </nav>
+  return(
+    <Modal title="Iniciar Novo Mês" onClose={onClose}>
+      <div style={{background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:'12px',padding:'16px',marginBottom:'20px'}}>
+        <div style={{fontSize:'14px',color:'#f59e0b',fontWeight:'600',marginBottom:'8px'}}>⚠️ Atenção</div>
+        <div style={{fontSize:'13px',color:'#9ca3af',lineHeight:1.6}}>
+          <strong style={{color:'#e5e7eb'}}>{currentLabel}</strong> está em aberto e será arquivado automaticamente.
+          {alreadyExists&&<><br/><br/><span style={{color:'#f87171'}}>⚠️ Já existe um arquivo para <strong>{nextLabel}</strong>. Será criado um registo duplicado.</span></>}
+        </div>
+      </div>
+      <div style={{fontSize:'13px',color:'#6b7280',marginBottom:'20px'}}>O novo mês será <strong style={{color:'#e5e7eb'}}>{nextLabel}</strong>. As tarefas e horas da Josi serão reiniciadas.</div>
+      <div style={{display:'flex',gap:'10px'}}>
+        <Btn onClick={onClose} variant="secondary" style={{flex:1}}>Cancelar</Btn>
+        <Btn onClick={onConfirm} variant="warning" style={{flex:1}}>Confirmar</Btn>
+      </div>
+    </Modal>
   );
-};
+}
 
-// ── Login & Splash ────────────────────────────────────────────────────────────
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
-const Splash = ({msg='A carregar…'}) => (
-  <div style={{background:'#0d1117',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-    <div style={{fontFamily:"'Fraunces',serif",fontSize:'36px',color:'#10b981',marginBottom:'8px'}}>Monimoni</div>
-    <div style={{color:'#374151',fontSize:'13px'}}>{msg}</div>
-  </div>
-);
+function App(){
+  const now=new Date(); const yr=now.getFullYear(); const mo=now.getMonth();
+  const mk=mkKey(yr,mo);
 
-const Login = ({onSelect}) => (
-  <div style={{background:'#0d1117',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px'}}>
-    <div style={{fontFamily:"'Fraunces',serif",fontSize:'44px',color:'#10b981',letterSpacing:'-0.5px',lineHeight:1}}>Monimoni</div>
-    <div style={{color:'#374151',fontSize:'12px',letterSpacing:'3px',textTransform:'uppercase',margin:'8px 0 52px'}}>Gestão Familiar</div>
-    <div style={{color:'#6b7280',fontSize:'13px',marginBottom:'20px'}}>Quem és?</div>
-    {[{name:'Nocas',grad:'linear-gradient(135deg,#059669,#10b981)',emoji:'👩'},{name:'João',grad:'linear-gradient(135deg,#1d4ed8,#3b82f6)',emoji:'👨'}].map(({name,grad,emoji})=>(
-      <button key={name} onClick={()=>onSelect(name)} style={{width:'220px',padding:'18px',marginBottom:'12px',background:grad,borderRadius:'18px',color:'#fff',fontSize:'18px',fontWeight:'600',boxShadow:'0 8px 24px rgba(0,0,0,0.4)',border:'none',cursor:'pointer',transition:'transform 0.15s'}}>
-        {emoji}  {name}
-      </button>
-    ))}
-  </div>
-);
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-
-const Toast = ({msg, ok}) => (
-  <div style={{position:'fixed',bottom:'90px',left:'50%',transform:'translateX(-50%)',background:ok?'#059669':'#dc2626',color:'#fff',padding:'8px 20px',borderRadius:'20px',fontSize:'13px',fontWeight:'600',zIndex:100,boxShadow:'0 4px 16px rgba(0,0,0,0.4)',animation:'toastIn 0.2s ease',whiteSpace:'nowrap'}}>
-    {msg}
-  </div>
-);
-
-// ── Main App ──────────────────────────────────────────────────────────────────
-
-function App() {
-  const now = new Date();
-  const yr  = now.getFullYear(), mo = now.getMonth();
-  const mk  = mkKey(yr, mo);
-
-  const [fbReady, setFbReady] = useState(!!window._fbReady);
-  const [ready,   setReady]   = useState(false);
-  const [user,    setUser]    = useState(null);
-  const [tab,     setTab]     = useState('home');
-  const [cl,      setCl]      = useState({});
-  const [cofres,  setCofres]  = useState([]);
-  const [inv,     setInv]     = useState([]);
-  const [josi,    setJosi]    = useState([]);
-  const [josiCfg, setJosiCfg] = useState({rate:9});
-  const [hist,    setHist]    = useState([]);
-  const [modal,   setModal]   = useState(null);
-  const [histView,setHistView]= useState(null);
-  const [toast,   setToast]   = useState(null);
+  const [fbReady,setFbReady]=useState(!!window._fbReady);
+  const [authed,setAuthed]=useState(false);
+  const [ready,setReady]=useState(false);
+  const [user,setUser]=useState(null);
+  const [tab,setTab]=useState('home');
+  const [cl,setCl]=useState({});
+  const [snapshots,setSnapshots]=useState([]);
+  const [inv,setInv]=useState([]);
+  const [josi,setJosi]=useState([]);
+  const [josiCfg,setJosiCfg]=useState({rate:9});
+  const [hist,setHist]=useState([]);
+  const [expenses,setExpenses]=useState(DEFAULT_EXPENSES);
+  const [vaults,setVaults]=useState(DEFAULT_VAULTS);
+  const [assets,setAssets]=useState(DEFAULT_ASSETS);
+  const [platforms,setPlatforms]=useState(DEFAULT_PLATFORMS);
+  const [tasks,setTasks]=useState(DEFAULT_TASKS);
+  const [toast,setToast]=useState(null);
+  const [histView,setHistView]=useState(null);
+  const [showNewMonth,setShowNewMonth]=useState(false);
+  const [showSettings,setShowSettings]=useState(false);
 
   useEffect(()=>{
-    if(fbReady) return;
-    const h = ()=>setFbReady(true);
-    window.addEventListener('fb-ready', h);
-    return ()=>window.removeEventListener('fb-ready', h);
+    if(fbReady)return;
+    const h=()=>setFbReady(true);
+    window.addEventListener('fb-ready',h);
+    return()=>window.removeEventListener('fb-ready',h);
   },[fbReady]);
 
   useEffect(()=>{
-    if(!fbReady) return;
+    if(!fbReady||!authed)return;
     Promise.all([
-      ld(`cl-${mk}`), ld('cofres'), ld('inv'),
-      ld(`josi-${mk}`), ld('josi-cfg'), ld('cl-hist'),
-    ]).then(([c,co,iv,j,jc,h])=>{
-      setCl(c||{}); setCofres(co||[]); setInv(iv||[]);
-      setJosi(j||[]); if(jc) setJosiCfg(jc); setHist(h||[]);
+      ld(`cl-${mk}`),ld('snapshots'),ld('inv'),
+      ld(`josi-${mk}`),ld('josi-cfg'),ld('cl-hist'),
+      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),
+    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk])=>{
+      setCl(c||{}); setSnapshots(sn||[]); setInv(iv||[]);
+      setJosi(j||[]); if(jc)setJosiCfg(jc); setHist(h||[]);
+      if(ex)setExpenses(ex); if(vl)setVaults(vl);
+      if(as)setAssets(as); if(pl)setPlatforms(pl);
+      if(tk)setTasks(tk);
       setReady(true);
     });
-  },[fbReady]);
+  },[fbReady,authed]);
 
-  if(!fbReady || !ready) return <Splash msg={!fbReady?'A ligar ao Firebase…':'A carregar dados…'}/>;
-  if(!user) return <Login onSelect={setUser}/>;
+  // Auto-inject periodic expense tasks for current month
+  useEffect(()=>{
+    if(!ready)return;
+    const periodicThisMonth=expenses.filter(e=>e.active&&e.period==='annual'&&e.month===mo);
+    periodicThisMonth.forEach(exp=>{
+      const tid='expense_'+exp.id;
+      if(!tasks.find(t=>t.id===tid)){
+        const newTask={id:tid,label:`Pagar: ${exp.name}`,desc:`${fmt(exp.amount)} · gerado automaticamente`,type:'Manual',autoGenerated:true};
+        setTasks(prev=>{
+          const next=[...prev,newTask];
+          sv('tasks',next);
+          return next;
+        });
+      }
+    });
+  },[ready,expenses,mo]);
 
-  const showToast = (msg, ok=true) => {
-    setToast({msg,ok});
-    setTimeout(()=>setToast(null), 2000);
+  if(!fbReady||(!ready&&authed)) return <Splash msg={!fbReady?'A ligar ao Firebase…':'A carregar…'}/>;
+  if(!authed) return <PasswordScreen onSuccess={()=>setAuthed(true)}/>;
+  if(!user) return <LoginScreen onSelect={setUser}/>;
+
+  const showToast=(msg,ok=true)=>{setToast({msg,ok});setTimeout(()=>setToast(null),2200);};
+
+  const handleMenuAction=async action=>{
+    if(action==='switch-user'){setUser(null);}
+    else if(action==='new-month'){setShowNewMonth(true);}
+    else if(action==='settings'){setShowSettings(true);}
+    else if(action==='logout'){setUser(null);setAuthed(false);}
   };
 
-  const toggle = async (id) => {
-    const cur  = cl[id];
-    const next = {...cl, [id]: cur?.done ? null : {done:true, by:user, at:new Date().toISOString()}};
-    setCl(next);
-    const ok = await sv(`cl-${mk}`, next);
-    showToast(ok ? 'Guardado ✓' : 'Erro ao guardar ✗', ok);
+  const doNewMonth=async()=>{
+    const entry={key:mk,label:`${MONTHS[mo]} ${yr}`,data:cl,at:new Date().toISOString(),by:user};
+    const h=[entry,...hist];
+    setHist(h); await sv('cl-hist',h);
+    setCl({}); await sv(`cl-${mk}`,{});
+    setJosi([]); await sv(`josi-${mk}`,[]);
+    setShowNewMonth(false); showToast('Novo mês iniciado ✓');
   };
 
-  const newMonth = async () => {
-    const entry = {key:mk, label:`${MONTHS[mo]} ${yr}`, data:cl, at:new Date().toISOString(), by:user};
-    const h = [entry, ...hist];
-    setHist(h); await sv('cl-hist', h);
-    setCl({}); await sv(`cl-${mk}`, {});
-    setJosi([]); await sv(`josi-${mk}`, []);
-    showToast('Novo mês iniciado ✓');
+  const toggle=async id=>{
+    const next={...cl,[id]:cl[id]?.done?null:{done:true,by:user,at:new Date().toISOString()}};
+    setCl(next); const ok=await sv(`cl-${mk}`,next);
+    showToast(ok?'Guardado ✓':'Erro ao guardar ✗',ok);
   };
 
-  const saveCofre = async (vals) => {
-    const next = [{id:Date.now(), date:new Date().toISOString(), by:user, vals}, ...cofres];
-    setCofres(next); const ok = await sv('cofres', next);
-    showToast(ok?'Snapshot guardado ✓':'Erro ao guardar ✗', ok);
-    setModal(null);
+  const jH=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+  const done=tasks.filter(t=>cl[t.id]?.done).length;
+
+  const views={
+    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} hist={hist} onNavigate={t=>{if(t==='josi')setTab('more');else setTab(t);}} onHistView={setHistView}/>,
+    tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
+    expenses:<Expenses expenses={expenses} user={user} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
+    invest:<Invest inv={inv} mk={mk} assets={assets} platforms={platforms} user={user}
+      onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
+      onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
+      onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
+    more:<More vaults={vaults} snapshots={snapshots} josi={josi} josiCfg={josiCfg} mk={mk} user={user} showToast={showToast}
+      onSaveSnapshots={async v=>{setSnapshots(v);await sv('snapshots',v);}}
+      onSaveJosi={async v=>{setJosi(v);await sv(`josi-${mk}`,v);}}
+      onSaveJosiCfg={async v=>{setJosiCfg(v);await sv('josi-cfg',v);}}
+      onSaveVaults={async v=>{setVaults(v);await sv('vaults',v);}}/>,
   };
 
-  const saveInv = async (data) => {
-    const next = [{id:Date.now(), date:new Date().toISOString(), mk, by:user, ...data}, ...inv];
-    setInv(next); const ok = await sv('inv', next);
-    showToast(ok?'Investimento guardado ✓':'Erro ao guardar ✗', ok);
-    setModal(null);
-  };
-
-  const saveJosi = async (data) => {
-    const next = [...josi, {id:Date.now(), by:user, at:new Date().toISOString(), ...data}].sort((a,b)=>a.date.localeCompare(b.date));
-    setJosi(next); const ok = await sv(`josi-${mk}`, next);
-    showToast(ok?'Guardado ✓':'Erro ao guardar ✗', ok);
-    setModal(null);
-  };
-
-  const deleteJosi = async (id) => {
-    const next = josi.filter(e=>e.id!==id);
-    setJosi(next); await sv(`josi-${mk}`, next);
-    showToast('Entrada removida');
-  };
-
-  const saveJosiCfg = async (cfg) => { setJosiCfg(cfg); await sv('josi-cfg', cfg); showToast('Valor/hora atualizado ✓'); };
-
-  const jH   = josi.reduce((s,e)=>s+(parseFloat(e.hours)||0), 0);
-  const jAmt = (jH * josiCfg.rate).toFixed(2);
-  const done = TASKS.filter(t=>cl[t.id]?.done).length;
-
-  const views = {
-    home:   <Home done={done} total={TASKS.length} lastCofre={cofres[0]} jH={jH} jAmt={jAmt} mk={mk} inv={inv} hist={hist} cl={cl} onNewMonth={newMonth} onHistView={setHistView}/>,
-    tasks:  <Tasks tasks={TASKS} cl={cl} onToggle={toggle}/>,
-    cofres: <Cofres data={cofres} onNew={()=>setModal('cofre')}/>,
-    invest: <Invest data={inv} mk={mk} onNew={()=>setModal('invest')}/>,
-    josi:   <JosiView entries={josi} cfg={josiCfg} hours={jH} total={jAmt} onNew={()=>setModal('josi')} onCfgChange={saveJosiCfg} onDelete={deleteJosi}/>,
-  };
-
-  return (
+  return(
     <div style={{background:'#0d1117',minHeight:'100vh',maxWidth:'480px',margin:'0 auto',paddingBottom:'80px'}}>
-      <Header user={user} onLogout={()=>setUser(null)} month={MONTHS[mo]} year={yr}/>
+      <Header user={user} month={MONTHS[mo]} year={yr} onMenuAction={handleMenuAction}/>
       <main style={{padding:'16px 16px 24px'}}>{views[tab]}</main>
-      <Nav tab={tab} setTab={setTab} done={done} total={TASKS.length}/>
-      {modal==='cofre'  && <CofreModal  last={cofres[0]?.vals} onSave={saveCofre} onClose={()=>setModal(null)}/>}
-      {modal==='invest' && <InvModal    onSave={saveInv}        onClose={()=>setModal(null)}/>}
-      {modal==='josi'   && <JosiModal   onSave={saveJosi}       onClose={()=>setModal(null)}/>}
-      {histView && <HistModal entry={histView} onClose={()=>setHistView(null)}/>}
-      {toast && <Toast msg={toast.msg} ok={toast.ok}/>}
+      <Nav tab={tab} setTab={setTab} done={done} total={tasks.length}/>
+      {histView&&<HistModal entry={histView} onClose={()=>setHistView(null)}/>}
+      {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
+      {showSettings&&<Settings tasks={tasks} user={user} showToast={showToast} onClose={()=>setShowSettings(false)}
+        onSaveTasks={async v=>{setTasks(v);await sv('tasks',v);}}/>}
+      {toast&&<Toast msg={toast.msg} ok={toast.ok}/>}
     </div>
   );
 }
