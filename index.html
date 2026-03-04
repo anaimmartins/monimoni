@@ -319,24 +319,56 @@ function Header({user,month,year,onMenuAction}){
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 
 function Nav({tab,setTab,done,total}){
-  const items=[
+  const [moreOpen,setMoreOpen]=useState(false);
+  const moreRef=useRef();
+  useEffect(()=>{
+    const h=e=>{if(moreRef.current&&!moreRef.current.contains(e.target))setMoreOpen(false);};
+    document.addEventListener('mousedown',h);
+    return()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  const mainItems=[
     {id:'home',    icon:'⊞', label:'Início'},
     {id:'tasks',   icon:'✓', label:'Tarefas', badge:`${done}/${total}`},
     {id:'expenses',icon:'€', label:'Encargos'},
-    {id:'more',    icon:'···',label:'Mais'},
   ];
+  const moreItems=[
+    {id:'josi',   label:'✦ Josi'},
+    {id:'cofres', label:'◈ Cofres'},
+    {id:'invest', label:'↗ Investimentos'},
+  ];
+  const moreActive=['josi','cofres','invest'].includes(tab);
+
+  const goMore=id=>{setTab(id);setMoreOpen(false);};
+
   return(
     <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:'480px',background:'#111827',borderTop:'1px solid #1f2937',display:'flex',zIndex:20}}>
-      {items.map(it=>{
+      {mainItems.map(it=>{
         const active=tab===it.id;
         return(
           <button key={it.id} onClick={()=>setTab(it.id)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',color:active?'#10b981':'#4b5563',cursor:'pointer',transition:'color 0.2s',minHeight:'56px'}}>
-            <span style={{fontSize:it.id==='more'?'14px':'20px',lineHeight:1,fontWeight:it.id==='more'?'700':'400'}}>{it.icon}</span>
+            <span style={{fontSize:'20px',lineHeight:1}}>{it.icon}</span>
             <span style={{fontSize:'10px',fontWeight:active?'600':'400'}}>{it.label}</span>
             {it.badge&&<span style={{fontSize:'9px',color:active?'#10b981':'#374151'}}>{it.badge}</span>}
           </button>
         );
       })}
+      {/* Mais button with popup */}
+      <div ref={moreRef} style={{flex:1,position:'relative',display:'flex',alignItems:'stretch'}}>
+        <button onClick={()=>setMoreOpen(o=>!o)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',color:moreActive||moreOpen?'#10b981':'#4b5563',cursor:'pointer',transition:'color 0.2s',minHeight:'56px'}}>
+          <span style={{fontSize:'14px',lineHeight:1,fontWeight:'700',letterSpacing:'2px'}}>···</span>
+          <span style={{fontSize:'10px',fontWeight:moreActive||moreOpen?'600':'400'}}>Mais</span>
+        </button>
+        {moreOpen&&(
+          <div style={{position:'absolute',bottom:'calc(100% + 8px)',right:0,background:'#1a2332',border:'1px solid #1f2937',borderRadius:'14px',overflow:'hidden',boxShadow:'0 -4px 20px rgba(0,0,0,0.5)',minWidth:'160px',animation:'fadeIn 0.15s ease'}}>
+            {moreItems.map(it=>(
+              <button key={it.id} onClick={()=>goMore(it.id)} style={{width:'100%',padding:'13px 16px',background:tab===it.id?'rgba(16,185,129,0.1)':'none',border:'none',color:tab===it.id?'#10b981':'#e5e7eb',fontSize:'14px',textAlign:'left',cursor:'pointer',display:'block',minHeight:'44px'}}>
+                {it.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </nav>
   );
 }
@@ -598,7 +630,7 @@ function Expenses({expenses,onSave,user}){
       <Lbl>Anuais / Periódicos</Lbl>
       {annual.map(e=><ExpRow key={e.id} exp={e}/>)}
 
-      {(modal==='add'||typeof modal==='object')&&(
+      {(modal==='add'||(modal!==null&&typeof modal==='object'))&&(
         <ExpenseModal
           expense={modal==='add'?null:modal}
           onSave={save}
@@ -1540,16 +1572,17 @@ function App(){
   const done=tasks.filter(t=>cl[t.id]?.done).length;
 
   const views={
-    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} hist={hist} onNavigate={t=>{if(t==='josi'||t==='invest')setTab('more');else setTab(t);}} onHistView={setHistView}/>,
+    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} hist={hist} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
     tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
     expenses:<Expenses expenses={expenses} user={user} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
 
-    more:<More vaults={vaults} snapshots={snapshots} josi={josi} josiCfg={josiCfg} mk={mk} user={user} showToast={showToast}
-      inv={inv} assets={assets} platforms={platforms}
+    josi:<JosiView entries={josi} cfg={josiCfg} mk={mk} user={user} showToast={showToast}
+      onSave={async v=>{setJosi(v);await sv(`josi-${mk}`,v);}}
+      onCfgChange={async v=>{setJosiCfg(v);await sv('josi-cfg',v);}}/>,
+    cofres:<Cofres vaults={vaults} snapshots={snapshots} user={user} showToast={showToast}
       onSaveSnapshots={async v=>{setSnapshots(v);await sv('snapshots',v);}}
-      onSaveJosi={async v=>{setJosi(v);await sv(`josi-${mk}`,v);}}
-      onSaveJosiCfg={async v=>{setJosiCfg(v);await sv('josi-cfg',v);}}
-      onSaveVaults={async v=>{setVaults(v);await sv('vaults',v);}}
+      onSaveVaults={async v=>{setVaults(v);await sv('vaults',v);}}/>,
+    invest:<Invest inv={inv} mk={mk} assets={assets} platforms={platforms} user={user}
       onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
       onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
       onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
