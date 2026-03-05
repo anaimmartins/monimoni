@@ -318,6 +318,28 @@ function Header({user,month,year,onMenuAction}){
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 
+// ─── NAV ICONS (inline SVG) ──────────────────────────────────────────────────
+const IconHome=({size=22,color='currentColor'})=>(
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+  </svg>
+);
+const IconTasks=({size=22,color='currentColor'})=>(
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+  </svg>
+);
+const IconExpenses=({size=22,color='currentColor'})=>(
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+  </svg>
+);
+const IconMore=({size=22,color='currentColor'})=>(
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="5" cy="12" r="1.5" fill={color}/><circle cx="12" cy="12" r="1.5" fill={color}/><circle cx="19" cy="12" r="1.5" fill={color}/>
+  </svg>
+);
+
 function Nav({tab,setTab,done,total}){
   const [moreOpen,setMoreOpen]=useState(false);
   const moreRef=useRef();
@@ -328,41 +350,39 @@ function Nav({tab,setTab,done,total}){
   },[]);
 
   const mainItems=[
-    {id:'home',    icon:'⊞', label:'Início'},
-    {id:'tasks',   icon:'✓', label:'Tarefas', badge:`${done}/${total}`},
-    {id:'expenses',icon:'€', label:'Encargos'},
+    {id:'home',    Icon:IconHome,    label:'Início'},
+    {id:'tasks',   Icon:IconTasks,   label:'Tarefas', badge:`${done}/${total}`},
+    {id:'expenses',Icon:IconExpenses,label:'Encargos'},
   ];
   const moreItems=[
-    {id:'josi',   label:'✦ Josi'},
-    {id:'cofres', label:'◈ Cofres'},
-    {id:'invest', label:'↗ Investimentos'},
+    {id:'josi',   label:'Josi'},
+    {id:'cofres', label:'Cofres'},
+    {id:'invest', label:'Investimentos'},
   ];
   const moreActive=['josi','cofres','invest'].includes(tab);
-
   const goMore=id=>{setTab(id);setMoreOpen(false);};
 
   return(
-    <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:'480px',background:'#111827',borderTop:'1px solid #1f2937',display:'flex',zIndex:20}}>
+    <nav style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:'480px',background:'#1a2332',borderTop:'1px solid #252f3f',display:'flex',zIndex:20,paddingBottom:'env(safe-area-inset-bottom)'}}>
       {mainItems.map(it=>{
         const active=tab===it.id;
         return(
-          <button key={it.id} onClick={()=>setTab(it.id)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',color:active?'#10b981':'#4b5563',cursor:'pointer',transition:'color 0.2s',minHeight:'56px'}}>
-            <span style={{fontSize:'20px',lineHeight:1}}>{it.icon}</span>
-            <span style={{fontSize:'10px',fontWeight:active?'600':'400'}}>{it.label}</span>
-            {it.badge&&<span style={{fontSize:'9px',color:active?'#10b981':'#374151'}}>{it.badge}</span>}
+          <button key={it.id} onClick={()=>setTab(it.id)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',color:active?'#10b981':'#6b7280',cursor:'pointer',transition:'color 0.15s',minHeight:'56px'}}>
+            <it.Icon size={22} color={active?'#10b981':'#6b7280'}/>
+            <span style={{fontSize:'11px',fontWeight:active?'600':'400',color:active?'#10b981':'#9ca3af',letterSpacing:'0.2px'}}>{it.label}</span>
+            {it.badge&&<span style={{fontSize:'9px',color:active?'#10b981':'#4b5563',marginTop:'-2px'}}>{it.badge}</span>}
           </button>
         );
       })}
-      {/* Mais button with popup */}
       <div ref={moreRef} style={{flex:1,position:'relative',display:'flex',alignItems:'stretch'}}>
-        <button onClick={()=>setMoreOpen(o=>!o)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',color:moreActive||moreOpen?'#10b981':'#4b5563',cursor:'pointer',transition:'color 0.2s',minHeight:'56px'}}>
-          <span style={{fontSize:'14px',lineHeight:1,fontWeight:'700',letterSpacing:'2px'}}>···</span>
-          <span style={{fontSize:'10px',fontWeight:moreActive||moreOpen?'600':'400'}}>Mais</span>
+        <button onClick={()=>setMoreOpen(o=>!o)} style={{flex:1,padding:'10px 4px 12px',background:'none',border:'none',display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',color:moreActive||moreOpen?'#10b981':'#6b7280',cursor:'pointer',transition:'color 0.15s',minHeight:'56px'}}>
+          <IconMore size={22} color={moreActive||moreOpen?'#10b981':'#6b7280'}/>
+          <span style={{fontSize:'11px',fontWeight:moreActive||moreOpen?'600':'400',color:moreActive||moreOpen?'#10b981':'#9ca3af',letterSpacing:'0.2px'}}>Mais</span>
         </button>
         {moreOpen&&(
-          <div style={{position:'absolute',bottom:'calc(100% + 8px)',right:0,background:'#1a2332',border:'1px solid #1f2937',borderRadius:'14px',overflow:'hidden',boxShadow:'0 -4px 20px rgba(0,0,0,0.5)',minWidth:'160px',animation:'fadeIn 0.15s ease'}}>
+          <div style={{position:'absolute',bottom:'calc(100% + 8px)',right:0,background:'#1a2332',border:'1px solid #252f3f',borderRadius:'14px',overflow:'hidden',boxShadow:'0 -4px 24px rgba(0,0,0,0.6)',minWidth:'170px',animation:'fadeIn 0.15s ease'}}>
             {moreItems.map(it=>(
-              <button key={it.id} onClick={()=>goMore(it.id)} style={{width:'100%',padding:'13px 16px',background:tab===it.id?'rgba(16,185,129,0.1)':'none',border:'none',color:tab===it.id?'#10b981':'#e5e7eb',fontSize:'14px',textAlign:'left',cursor:'pointer',display:'block',minHeight:'44px'}}>
+              <button key={it.id} onClick={()=>goMore(it.id)} style={{width:'100%',padding:'14px 18px',background:tab===it.id?'rgba(16,185,129,0.1)':'none',border:'none',borderBottom:'1px solid #252f3f',color:tab===it.id?'#10b981':'#e5e7eb',fontSize:'14px',fontWeight:tab===it.id?'600':'400',textAlign:'left',cursor:'pointer',display:'block',minHeight:'48px'}}>
                 {it.label}
               </button>
             ))}
@@ -384,7 +404,35 @@ const Splash=({msg='A carregar…'})=>(
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 
-function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,hist,onNavigate,onHistView}){
+function ActivityFeed({events}){
+  const [expanded,setExpanded]=useState(false);
+  const shown=expanded?events:events.slice(0,6);
+  return(
+    <Card>
+      <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Atividade Recente</div>
+      {shown.map((e,i)=>(
+        <div key={i} style={{display:'flex',alignItems:'flex-start',gap:'10px',padding:'7px 0',borderBottom:'1px solid #1a2332'}}>
+          <div style={{width:'24px',height:'24px',borderRadius:'50%',background:`${e.color}18`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',flexShrink:0,marginTop:'1px'}}>{e.icon}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:'13px',color:'#e5e7eb',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{e.label}</div>
+            {e.sub&&<div style={{fontSize:'11px',color:e.color,marginTop:'1px'}}>{e.sub}</div>}
+          </div>
+          <div style={{textAlign:'right',flexShrink:0}}>
+            <div style={{fontSize:'11px',color:'#4b5563'}}>{e.meta}</div>
+            <div style={{fontSize:'10px',color:'#374151',marginTop:'1px'}}>{fmtT(e.at)}</div>
+          </div>
+        </div>
+      ))}
+      {events.length>6&&(
+        <button onClick={()=>setExpanded(x=>!x)} style={{width:'100%',marginTop:'10px',padding:'8px',background:'none',border:'none',color:'#4b5563',fontSize:'12px',cursor:'pointer',textAlign:'center'}}>
+          {expanded?'Ver menos ▲':`Ver mais (${events.length-6}) ▼`}
+        </button>
+      )}
+    </Card>
+  );
+}
+
+function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,onNavigate,onHistView}){
   const now=new Date(); const mo=now.getMonth();
   const pct=total>0?Math.round((done/total)*100):0;
   const monthInv=inv.filter(i=>i.mk===mk);
@@ -461,24 +509,44 @@ function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,hist,onNavigate,onHist
         </div>
       </Card>
 
-      {/* Recent tasks */}
-      {done>0&&(()=>{
-        const recent=DEFAULT_TASKS.filter(t=>cl&&cl[t.id]?.done).slice(-3).reverse();
-        if(!recent.length)return null;
-        return(
-          <Card>
-            <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Últimas Tarefas</div>
-            {recent.map(t=>{
-              const s=cl?.[t.id];
-              return(
-                <div key={t.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid #1a2332'}}>
-                  <div style={{fontSize:'13px',color:'#9ca3af',maxWidth:'65%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.label}</div>
-                  <div style={{fontSize:'11px',color:'#10b981'}}>{s?.by} · {fmtT(s?.at)}</div>
-                </div>
-              );
-            })}
-          </Card>
-        );
+      {/* Atividade Recente */}
+      {(()=>{
+        const events=[];
+        // Tasks
+        DEFAULT_TASKS.filter(t=>cl&&cl[t.id]?.done).forEach(t=>{
+          const s=cl[t.id];
+          events.push({at:s.at,icon:'✓',color:'#10b981',label:t.label,meta:s.by,sub:s.paidAmount?`${fmt(s.paidAmount)} pagos`:null});
+        });
+        // Investments
+        inv.forEach(i=>{
+          events.push({at:i.date,icon:'↗',color:'#34d399',label:i.asset,meta:i.by,sub:`${fmt(parseFloat(i.amount)||0)} · ${i.platform}`});
+          if(i.editedAt) events.push({at:i.editedAt,icon:'✏️',color:'#6b7280',label:`Editado: ${i.asset}`,meta:i.editedBy,sub:fmt(parseFloat(i.amount)||0)});
+        });
+        // Snapshots
+        snapshots.forEach(s=>{
+          const total=Object.values(s.vals||{}).filter((_,i2)=>{
+            const keys=Object.keys(s.vals||{});
+            return keys[i2].endsWith('_f1');
+          }).reduce((sum,v)=>sum+(parseFloat(v)||0),0);
+          events.push({at:s.date,icon:'◈',color:'#60a5fa',label:'Cofres atualizados',meta:s.by,sub:null});
+          if(s.editedAt) events.push({at:s.editedAt,icon:'✏️',color:'#6b7280',label:'Snapshot editado',meta:s.editedBy,sub:null});
+        });
+        // Josi hours
+        josi.forEach(e=>{
+          events.push({at:e.at||e.date,icon:'✦',color:'#f59e0b',label:`Josi — ${parseFloat(e.hours).toFixed(1)}h`,meta:e.by,sub:fmt(parseFloat(e.hours)*josiCfg.rate)});
+        });
+        // Expenses changes
+        expenses.filter(e=>e.createdAt).forEach(e=>{
+          events.push({at:e.createdAt,icon:'€',color:'#f87171',label:`Novo encargo: ${e.name}`,meta:e.createdBy,sub:fmt(e.amount)});
+        });
+        expenses.filter(e=>e.editedAt).forEach(e=>{
+          events.push({at:e.editedAt,icon:'✏️',color:'#6b7280',label:`Encargo editado: ${e.name}`,meta:e.editedBy,sub:fmt(e.amount)});
+        });
+
+        events.sort((a,b)=>new Date(b.at)-new Date(a.at));
+        if(!events.length) return null;
+
+        return <ActivityFeed events={events}/>;
       })()}
 
       {/* History */}
@@ -1382,23 +1450,43 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,user,onClose,showToast
     );
   }
 
+  const [tasksOpen,setTasksOpen]=useState(false);
+  const [emailOpen,setEmailOpen]=useState(false);
+
   return(
     <Modal title="Configurações" onClose={onClose}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-        <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px'}}>Gerir Tarefas</div>
-        <Btn onClick={()=>setEditTask('new')} style={{padding:'7px 14px',fontSize:'13px'}}>+ Nova</Btn>
-      </div>
-      {tasks.map(t=>(
-        <div key={t.id} onClick={()=>setEditTask(t)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:'#1f2937',borderRadius:'12px',marginBottom:'8px',cursor:'pointer',minHeight:'52px'}}>
-          <div style={{flex:1,minWidth:0,paddingRight:'8px'}}>
-            <div style={{fontSize:'13px',color:'#e5e7eb',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.label}</div>
-            <div style={{fontSize:'10px',color:'#4b5563',marginTop:'2px'}}>{t.type}</div>
+      {/* Tarefas section */}
+      <button onClick={()=>setTasksOpen(o=>!o)} style={{width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'#1f2937',borderRadius:'12px',border:'none',cursor:'pointer',marginBottom:'8px',minHeight:'44px'}}>
+        <span style={{color:'#e5e7eb',fontSize:'14px',fontWeight:'500'}}>📋 Gerir Tarefas</span>
+        <span style={{color:'#4b5563',fontSize:'12px'}}>{tasksOpen?'▲':'▼'}</span>
+      </button>
+      {tasksOpen&&(
+        <div style={{marginBottom:'8px'}}>
+          <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'8px'}}>
+            <Btn onClick={()=>setEditTask('new')} style={{padding:'7px 14px',fontSize:'13px'}}>+ Nova</Btn>
           </div>
-          <span style={{color:'#374151',fontSize:'14px',flexShrink:0}}>›</span>
+          {tasks.map(t=>(
+            <div key={t.id} onClick={()=>setEditTask(t)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',background:'#1f2937',borderRadius:'12px',marginBottom:'8px',cursor:'pointer',minHeight:'52px'}}>
+              <div style={{flex:1,minWidth:0,paddingRight:'8px'}}>
+                <div style={{fontSize:'13px',color:'#e5e7eb',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.label}</div>
+                <div style={{fontSize:'10px',color:'#4b5563',marginTop:'2px'}}>{t.type}</div>
+              </div>
+              <span style={{color:'#374151',fontSize:'14px',flexShrink:0}}>›</span>
+            </div>
+          ))}
         </div>
-      ))}
-      <Divider/>
-      <EmailConfig emailCfg={emailCfg} onSave={onSaveEmail} showToast={showToast}/>
+      )}
+
+      {/* Email section */}
+      <button onClick={()=>setEmailOpen(o=>!o)} style={{width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'#1f2937',borderRadius:'12px',border:'none',cursor:'pointer',marginBottom:'8px',minHeight:'44px'}}>
+        <span style={{color:'#e5e7eb',fontSize:'14px',fontWeight:'500'}}>✉️ Emails</span>
+        <span style={{color:'#4b5563',fontSize:'12px'}}>{emailOpen?'▲':'▼'}</span>
+      </button>
+      {emailOpen&&(
+        <div style={{marginBottom:'8px'}}>
+          <EmailConfig emailCfg={emailCfg} onSave={onSaveEmail} showToast={showToast}/>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -1716,7 +1804,7 @@ function App(){
   const done=tasks.filter(t=>cl[t.id]?.done).length;
 
   const views={
-    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} hist={hist} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
+    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
     tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
     expenses:<Expenses expenses={expenses} user={user} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
 
