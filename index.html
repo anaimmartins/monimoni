@@ -255,7 +255,6 @@ function PasswordScreen({onSuccess}){
         {err&&<div style={{color:'#f87171',fontSize:'13px',textAlign:'center',marginBottom:'12px'}}>Password incorreta</div>}
         <Btn onClick={check} disabled={loading||!pw} style={{width:'100%',padding:'14px',fontSize:'16px'}}>{loading?'A verificar…':'Entrar'}</Btn>
       </div>
-      <div style={{color:'#1f2937',fontSize:'11px',marginTop:'32px'}}>Password padrão: monimoni</div>
     </div>
   );
 }
@@ -1398,7 +1397,30 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,user,onClose,showToast
           <span style={{color:'#374151',fontSize:'14px',flexShrink:0}}>›</span>
         </div>
       ))}
+      <Divider/>
+      <EmailConfig emailCfg={emailCfg} onSave={onSaveEmail} showToast={showToast}/>
     </Modal>
+  );
+}
+
+function EmailConfig({emailCfg,onSave,showToast}){
+  const [cfg,setCfg]=useState(emailCfg);
+  const [saving,setSaving]=useState(false);
+  const save=async()=>{setSaving(true);await onSave(cfg);setSaving(false);showToast('Configurações de email guardadas ✓');};
+  return(
+    <div>
+      <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Emails — Resumo Mensal</div>
+      <Field label="Email Nocas" type="email" value={cfg.nocas} onChange={v=>setCfg({...cfg,nocas:v})} placeholder="nocas@email.com"/>
+      <Field label="Email João" type="email" value={cfg.joao} onChange={v=>setCfg({...cfg,joao:v})} placeholder="joao@email.com"/>
+      <div style={{padding:'12px',background:'rgba(96,165,250,0.06)',border:'1px solid rgba(96,165,250,0.15)',borderRadius:'12px',marginBottom:'14px'}}>
+        <div style={{fontSize:'11px',color:'#60a5fa',fontWeight:'600',marginBottom:'6px'}}>Configuração EmailJS</div>
+        <div style={{fontSize:'11px',color:'#4b5563',marginBottom:'10px'}}>Precisas de criar uma conta gratuita em emailjs.com e preencher estes campos.</div>
+        <Field label="Service ID" value={cfg.serviceId} onChange={v=>setCfg({...cfg,serviceId:v})} placeholder="service_xxxxxxx"/>
+        <Field label="Template ID" value={cfg.templateId} onChange={v=>setCfg({...cfg,templateId:v})} placeholder="template_xxxxxxx"/>
+        <Field label="Public Key" value={cfg.publicKey} onChange={v=>setCfg({...cfg,publicKey:v})} placeholder="xxxxxxxxxxxx"/>
+      </div>
+      <Btn onClick={save} disabled={saving} style={{width:'100%'}}>{saving?'A guardar…':'Guardar Configurações'}</Btn>
+    </div>
   );
 }
 
