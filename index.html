@@ -1554,6 +1554,7 @@ function App(){
   const [histView,setHistView]=useState(null);
   const [showNewMonth,setShowNewMonth]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [josiPayModal,setJosiPayModal]=useState(false);
   const [emailCfg,setEmailCfg]=useState({nocas:'',joao:'',serviceId:'',templateId:'',publicKey:''});
 
   useEffect(()=>{
@@ -1670,8 +1671,6 @@ function App(){
     setShowNewMonth(false); showToast('Novo mês iniciado ✓');
     sendMonthlyEmail(`${MONTHS[mo]} ${yr}`, cl, josi, inv, expenses, snapshots);
   };
-
-  const [josiPayModal,setJosiPayModal]=useState(false);
 
   const toggle=async id=>{
     // Special handling for Josi payment task
