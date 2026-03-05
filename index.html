@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
@@ -504,26 +505,56 @@ function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,hist,onNavigate,onHist
 
 function Tasks({tasks,cl,onToggle}){
   const [filter,setFilter]=useState('all');
-  const shown=filter==='all'?tasks:tasks.filter(t=>t.type===filter);
-  const done=tasks.filter(t=>cl[t.id]?.done).length;
+  const [infoOpen,setInfoOpen]=useState(false);
+
+  const infoTasks=tasks.filter(t=>t.type==='Info');
+  const actionTasks=tasks.filter(t=>t.type!=='Info');
+  const shown=(filter==='all'?actionTasks:actionTasks.filter(t=>t.type===filter));
+  // Done to bottom
+  const sorted=[...shown.filter(t=>!cl[t.id]?.done),...shown.filter(t=>cl[t.id]?.done)];
+  const done=actionTasks.filter(t=>cl[t.id]?.done).length;
+
   return(
     <div style={{animation:'fadeUp 0.3s ease'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
         <SecTitle>Tarefas</SecTitle>
-        <div style={{color:'#6b7280',fontSize:'13px',fontWeight:'600'}}>{done}/{tasks.length}</div>
+        <div style={{color:'#6b7280',fontSize:'13px',fontWeight:'600'}}>{done}/{actionTasks.length}</div>
       </div>
+
+      {/* Info collapsible */}
+      {infoTasks.length>0&&(
+        <div style={{marginBottom:'14px'}}>
+          <button onClick={()=>setInfoOpen(o=>!o)} style={{width:'100%',padding:'10px 14px',background:'rgba(107,114,128,0.1)',border:'1px solid rgba(107,114,128,0.2)',borderRadius:'12px',color:'#9ca3af',fontSize:'13px',fontWeight:'500',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',minHeight:'40px'}}>
+            <span>ℹ️ Info <span style={{fontSize:'11px',color:'#4b5563'}}>({infoTasks.length})</span></span>
+            <span style={{fontSize:'12px'}}>{infoOpen?'▲':'▼'}</span>
+          </button>
+          {infoOpen&&(
+            <div style={{marginTop:'6px',display:'flex',flexDirection:'column',gap:'6px'}}>
+              {infoTasks.map(task=>(
+                <div key={task.id} style={{background:'rgba(107,114,128,0.06)',border:'1px solid rgba(107,114,128,0.15)',borderRadius:'12px',padding:'12px 14px'}}>
+                  <div style={{fontSize:'13px',color:'#9ca3af',fontWeight:'500'}}>{task.label}</div>
+                  {task.desc&&<div style={{fontSize:'12px',color:'#4b5563',marginTop:'3px'}}>{task.desc}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
       <div style={{display:'flex',gap:'6px',marginBottom:'16px',overflowX:'auto',paddingBottom:'4px'}}>
-        {['all','Manual','Auto','Info'].map(f=>(
+        {['all','Manual','Auto'].map(f=>(
           <button key={f} onClick={()=>setFilter(f)} style={{padding:'7px 14px',borderRadius:'20px',fontSize:'12px',fontWeight:'500',whiteSpace:'nowrap',border:'none',cursor:'pointer',background:filter===f?'#10b981':'#1f2937',color:filter===f?'#fff':'#6b7280',minHeight:'36px'}}>
             {f==='all'?'Todas':f}
           </button>
         ))}
       </div>
+
       <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-        {shown.map(task=>{
+        {sorted.map(task=>{
           const st=cl[task.id]; const isDone=!!st?.done;
           return(
-            <div key={task.id} onClick={()=>onToggle(task.id)} style={{background:isDone?'rgba(16,185,129,0.06)':'#111827',border:`1px solid ${isDone?'rgba(16,185,129,0.25)':'#1f2937'}`,borderRadius:'14px',padding:'14px',display:'flex',alignItems:'flex-start',gap:'12px',cursor:'pointer',transition:'opacity 0.15s',minHeight:'60px'}}>
+            <div key={task.id} onClick={()=>onToggle(task.id)} style={{background:isDone?'rgba(16,185,129,0.04)':'#111827',border:`1px solid ${isDone?'rgba(16,185,129,0.15)':'#1f2937'}`,borderRadius:'14px',padding:'14px',display:'flex',alignItems:'flex-start',gap:'12px',cursor:'pointer',transition:'all 0.2s',minHeight:'60px',opacity:isDone?0.6:1}}>
               <div style={{width:'24px',height:'24px',borderRadius:'50%',flexShrink:0,marginTop:'1px',background:isDone?'#10b981':'transparent',border:`2px solid ${isDone?'#10b981':'#374151'}`,display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'14px',transition:'all 0.2s'}}>
                 {isDone&&'✓'}
               </div>
@@ -1317,7 +1348,7 @@ function VaultForm({vault,onSave,onDelete,onBack}){
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 
-function Settings({tasks,onSaveTasks,user,onClose,showToast}){
+function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,user,onClose,showToast}){
   const [editTask,setEditTask]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
 
@@ -1447,7 +1478,26 @@ function HistModal({entry,onClose}){
 
 // ─── NEW MONTH MODAL ──────────────────────────────────────────────────────────
 
-function NewMonthModal({currentMk,hist,onConfirm,onClose}){
+
+function JosiPayModal({amount, onConfirm, onClose}){
+  const [val, setVal] = useState(String(parseFloat(amount).toFixed(2)));
+  return(
+    <Modal title="Confirmar Pagamento — Josi" onClose={onClose}>
+      <div style={{marginBottom:'20px',padding:'16px',background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:'12px'}}>
+        <div style={{fontSize:'13px',color:'#9ca3af',marginBottom:'12px'}}>Confirma o valor a pagar à Josi? Podes editar se necessário.</div>
+        <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Valor (€)</label>
+        <input type="number" value={val} onChange={e=>setVal(e.target.value)}
+          style={{width:'100%',padding:'12px 14px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'18px',fontWeight:'700',outline:'none',textAlign:'center'}}/>
+      </div>
+      <div style={{display:'flex',gap:'10px'}}>
+        <Btn onClick={onClose} variant="secondary" style={{flex:1}}>Cancelar</Btn>
+        <Btn onClick={()=>onConfirm(parseFloat(val)||0)} disabled={!val||parseFloat(val)<=0} style={{flex:1,padding:'14px'}}>✓ Confirmar Pagamento</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function NewMonthModal({currentMk,hist,cl,josiPaid,josiAmt,onConfirm,onClose}){
   const now=new Date(); const mo=now.getMonth(); const yr=now.getFullYear();
   const nextMo=(mo+1)%12; const nextYr=mo===11?yr+1:yr;
   const nextMk=mkKey(nextYr,nextMo);
@@ -1457,13 +1507,18 @@ function NewMonthModal({currentMk,hist,onConfirm,onClose}){
 
   return(
     <Modal title="Iniciar Novo Mês" onClose={onClose}>
-      <div style={{background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:'12px',padding:'16px',marginBottom:'20px'}}>
+      <div style={{background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.2)',borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
         <div style={{fontSize:'14px',color:'#f59e0b',fontWeight:'600',marginBottom:'8px'}}>⚠️ Atenção</div>
         <div style={{fontSize:'13px',color:'#9ca3af',lineHeight:1.6}}>
           <strong style={{color:'#e5e7eb'}}>{currentLabel}</strong> está em aberto e será arquivado automaticamente.
           {alreadyExists&&<><br/><br/><span style={{color:'#f87171'}}>⚠️ Já existe um arquivo para <strong>{nextLabel}</strong>. Será criado um registo duplicado.</span></>}
         </div>
       </div>
+      {!josiPaid&&josiAmt>0&&(
+        <div style={{background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'12px',padding:'14px',marginBottom:'16px',fontSize:'13px',color:'#fca5a5',lineHeight:1.5}}>
+          ⚠️ A Josi ainda não foi paga este mês — <strong>{fmt(josiAmt)}</strong> em aberto.
+        </div>
+      )}
       <div style={{fontSize:'13px',color:'#6b7280',marginBottom:'20px'}}>O novo mês será <strong style={{color:'#e5e7eb'}}>{nextLabel}</strong>. As tarefas e horas da Josi serão reiniciadas.</div>
       <div style={{display:'flex',gap:'10px'}}>
         <Btn onClick={onClose} variant="secondary" style={{flex:1}}>Cancelar</Btn>
@@ -1499,6 +1554,7 @@ function App(){
   const [histView,setHistView]=useState(null);
   const [showNewMonth,setShowNewMonth]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [emailCfg,setEmailCfg]=useState({nocas:'',joao:'',serviceId:'',templateId:'',publicKey:''});
 
   useEffect(()=>{
     if(fbReady)return;
@@ -1512,13 +1568,13 @@ function App(){
     Promise.all([
       ld(`cl-${mk}`),ld('snapshots'),ld('inv'),
       ld(`josi-${mk}`),ld('josi-cfg'),ld('cl-hist'),
-      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),
-    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk])=>{
+      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),
+    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em])=>{
       setCl(c||{}); setSnapshots(sn||[]); setInv(iv||[]);
       setJosi(j||[]); if(jc)setJosiCfg(jc); setHist(h||[]);
       if(ex&&ex.length>0)setExpenses(ex); if(vl&&vl.length>0)setVaults(vl);
       if(as)setAssets(as); if(pl)setPlatforms(pl);
-      if(tk)setTasks(tk);
+      if(tk)setTasks(tk); if(em)setEmailCfg(em);
       setReady(true);
     });
   },[fbReady,authed]);
@@ -1553,6 +1609,58 @@ function App(){
     else if(action==='logout'){setUser(null);setAuthed(false);}
   };
 
+  const sendMonthlyEmail=async(monthLabel,clData,josiData,invData,expData,snapData)=>{
+    if(!emailCfg.serviceId||!emailCfg.templateId||!emailCfg.publicKey) return;
+    const recipients=[emailCfg.nocas,emailCfg.joao].filter(Boolean);
+    if(!recipients.length) return;
+    const actionTasks=DEFAULT_TASKS.filter(t=>t.type!=='Info');
+    const doneCount=actionTasks.filter(t=>clData[t.id]?.done).length;
+    const notDone=actionTasks.filter(t=>!clData[t.id]?.done).map(t=>t.label).join(', ')||'Todas concluídas ✓';
+    const josiH=josiData.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+    const josiTotal=josiH*josiCfg.rate;
+    const josiPaid=!!clData['josi']?.done;
+    const monthInv=invData.filter(i=>i.mk===mk);
+    const invTotal=monthInv.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+    const byPlat={};monthInv.forEach(i=>{if(!byPlat[i.platform])byPlat[i.platform]=0;byPlat[i.platform]+=parseFloat(i.amount)||0;});
+    const invDetail=Object.entries(byPlat).map(([p,v])=>`${p}: ${fmt(v)}`).join(' | ')||'—';
+    const moIdx=now.getMonth();
+    const activeExp=expData.filter(e=>e.active);
+    const fixedTotal=activeExp.filter(e=>e.period==='monthly').reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    const periodic=activeExp.filter(e=>e.period==='annual'&&e.month===moIdx);
+    const periodicTotal=periodic.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    const periodicDetail=periodic.map(e=>`${e.name}: ${fmt(e.amount)}`).join(', ')||'Nenhum';
+    const lastSnap=snapData[0];
+    const snapTotal=lastSnap?Object.values(lastSnap.vals).reduce((s,v)=>s+(parseFloat(v)||0),0):0;
+
+    const templateParams={
+      month_label: monthLabel,
+      tasks_done: `${doneCount}/${actionTasks.length}`,
+      tasks_not_done: notDone,
+      josi_hours: josiH.toFixed(1),
+      josi_total: fmt(josiTotal),
+      josi_paid: josiPaid?'✓ Pago':'⚠️ Por pagar',
+      inv_total: fmt(invTotal),
+      inv_detail: invDetail,
+      expenses_fixed: fmt(fixedTotal),
+      expenses_periodic: periodicDetail,
+      expenses_total: fmt(fixedTotal+periodicTotal),
+      cofres_total: lastSnap?fmt(snapTotal):'Sem snapshot',
+      cofres_date: lastSnap?fmtD(lastSnap.date):'—',
+      initiated_by: user,
+    };
+
+    try {
+      emailjs.init(emailCfg.publicKey);
+      for(const to of recipients){
+        await emailjs.send(emailCfg.serviceId, emailCfg.templateId, {...templateParams, to_email: to});
+      }
+      showToast('Email enviado ✓');
+    } catch(e){
+      console.error('Email error',e);
+      showToast('Erro ao enviar email ✗', false);
+    }
+  };
+
   const doNewMonth=async()=>{
     const entry={key:mk,label:`${MONTHS[mo]} ${yr}`,data:cl,at:new Date().toISOString(),by:user};
     const h=[entry,...hist];
@@ -1560,12 +1668,27 @@ function App(){
     setCl({}); await sv(`cl-${mk}`,{});
     setJosi([]); await sv(`josi-${mk}`,[]);
     setShowNewMonth(false); showToast('Novo mês iniciado ✓');
+    sendMonthlyEmail(`${MONTHS[mo]} ${yr}`, cl, josi, inv, expenses, snapshots);
   };
 
+  const [josiPayModal,setJosiPayModal]=useState(false);
+
   const toggle=async id=>{
+    // Special handling for Josi payment task
+    if(id==='josi'&&!cl[id]?.done){
+      setJosiPayModal(true);
+      return;
+    }
     const next={...cl,[id]:cl[id]?.done?null:{done:true,by:user,at:new Date().toISOString()}};
     setCl(next); const ok=await sv(`cl-${mk}`,next);
     showToast(ok?'Guardado ✓':'Erro ao guardar ✗',ok);
+  };
+
+  const confirmJosiPay=async(amount)=>{
+    const next={...cl,josi:{done:true,by:user,at:new Date().toISOString(),paidAmount:amount}};
+    setCl(next); const ok=await sv(`cl-${mk}`,next);
+    setJosiPayModal(false);
+    showToast(ok?`Pagamento de ${fmt(amount)} registado ✓`:'Erro ao guardar ✗',ok);
   };
 
   const jH=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
@@ -1593,9 +1716,11 @@ function App(){
       <Header user={user} month={MONTHS[mo]} year={yr} onMenuAction={handleMenuAction}/>
       <main style={{padding:'16px 16px 24px'}}>{views[tab]}</main>
       <Nav tab={tab} setTab={setTab} done={done} total={tasks.length}/>
+      {josiPayModal&&<JosiPayModal amount={jH*josiCfg.rate} onConfirm={confirmJosiPay} onClose={()=>setJosiPayModal(false)}/>}
       {histView&&<HistModal entry={histView} onClose={()=>setHistView(null)}/>}
-      {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
+      {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} cl={cl} josiPaid={!!cl['josi']?.done} josiAmt={jH*josiCfg.rate} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
       {showSettings&&<Settings tasks={tasks} user={user} showToast={showToast} onClose={()=>setShowSettings(false)}
+        emailCfg={emailCfg} onSaveEmail={async v=>{setEmailCfg(v);await sv('email-config',v);}}
         onSaveTasks={async v=>{setTasks(v);await sv('tasks',v);}}/>}
       {toast&&<Toast msg={toast.msg} ok={toast.ok}/>}
     </div>
