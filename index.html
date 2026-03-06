@@ -1807,11 +1807,13 @@ function App(){
   };
 
   const jH=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
-  const done=tasks.filter(t=>cl[t.id]?.done).length;
+  const actionTasks=tasks.filter(t=>t.type!=='Info');
+  const done=actionTasks.filter(t=>cl[t.id]?.done).length;
 
   const views={
-    home:<Home done={done} total={tasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
+    home:<Home done={done} total={actionTasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
     tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
+
     expenses:<Expenses expenses={expenses} user={user} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
 
     josi:<JosiView entries={josi} cfg={josiCfg} mk={mk} user={user} showToast={showToast}
@@ -1830,7 +1832,7 @@ function App(){
     <div style={{background:'#0d1117',minHeight:'100vh',maxWidth:'480px',margin:'0 auto',paddingBottom:'80px'}}>
       <Header user={user} month={MONTHS[mo]} year={yr} onMenuAction={handleMenuAction}/>
       <main style={{padding:'16px 16px 24px'}}>{views[tab]}</main>
-      <Nav tab={tab} setTab={setTab} done={done} total={tasks.length}/>
+      <Nav tab={tab} setTab={setTab} done={done} total={actionTasks.length}/>
       {josiPayModal&&<JosiPayModal amount={jH*josiCfg.rate} onConfirm={confirmJosiPay} onClose={()=>setJosiPayModal(false)}/>}
       {histView&&<HistModal entry={histView} onClose={()=>setHistView(null)}/>}
       {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} cl={cl} josiPaid={!!cl['josi']?.done} josiAmt={jH*josiCfg.rate} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
