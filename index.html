@@ -1415,7 +1415,7 @@ function VaultForm({vault,onSave,onDelete,onBack}){
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 
-function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,user,onClose,showToast}){
+function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,user,onClose,showToast}){
   const [editTask,setEditTask]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
 
@@ -1484,17 +1484,22 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,user,onClose,showToast
       </button>
       {emailOpen&&(
         <div style={{marginBottom:'8px'}}>
-          <EmailConfig emailCfg={emailCfg} onSave={onSaveEmail} showToast={showToast}/>
+          <EmailConfig emailCfg={emailCfg} onSave={onSaveEmail} onSendTest={onSendTest} showToast={showToast}/>
         </div>
       )}
     </Modal>
   );
 }
 
-function EmailConfig({emailCfg,onSave,showToast}){
+function EmailConfig({emailCfg,onSave,onSendTest,showToast}){
   const [cfg,setCfg]=useState(emailCfg);
   const [saving,setSaving]=useState(false);
+  const [testing,setTesting]=useState(false);
   const save=async()=>{setSaving(true);await onSave(cfg);setSaving(false);showToast('Configurações de email guardadas ✓');};
+  const sendTest=async()=>{
+    if(!cfg.serviceId||!cfg.templateId||!cfg.publicKey){showToast('Preenche primeiro o Service ID, Template ID e Public Key ✗',false);return;}
+    setTesting(true); await onSendTest(); setTesting(false);
+  };
   return(
     <div>
       <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Emails — Resumo Mensal</div>
@@ -1507,7 +1512,8 @@ function EmailConfig({emailCfg,onSave,showToast}){
         <Field label="Template ID" value={cfg.templateId} onChange={v=>setCfg({...cfg,templateId:v})} placeholder="template_xxxxxxx"/>
         <Field label="Public Key" value={cfg.publicKey} onChange={v=>setCfg({...cfg,publicKey:v})} placeholder="xxxxxxxxxxxx"/>
       </div>
-      <Btn onClick={save} disabled={saving} style={{width:'100%'}}>{saving?'A guardar…':'Guardar Configurações'}</Btn>
+      <Btn onClick={save} disabled={saving} style={{width:'100%',marginBottom:'10px'}}>{saving?'A guardar…':'Guardar Configurações'}</Btn>
+      <Btn onClick={sendTest} disabled={testing} variant="secondary" style={{width:'100%'}}>{testing?'A enviar…':'📧 Enviar email de teste'}</Btn>
     </div>
   );
 }
@@ -1830,6 +1836,7 @@ function App(){
       {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} cl={cl} josiPaid={!!cl['josi']?.done} josiAmt={jH*josiCfg.rate} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
       {showSettings&&<Settings tasks={tasks} user={user} showToast={showToast} onClose={()=>setShowSettings(false)}
         emailCfg={emailCfg} onSaveEmail={async v=>{setEmailCfg(v);await sv('email-config',v);}}
+        onSendTest={()=>sendMonthlyEmail(`Teste — ${MONTHS[mo]} ${yr}`,cl,josi,inv,expenses,snapshots)}
         onSaveTasks={async v=>{setTasks(v);await sv('tasks',v);}}/>}
       {toast&&<Toast msg={toast.msg} ok={toast.ok}/>}
     </div>
