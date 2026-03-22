@@ -2135,7 +2135,7 @@ function App(){
       const cur=varCurEntries.find(e=>e.categoryId===cat.id);
       const prev=varPrevEntries.find(e=>e.categoryId===cat.id);
       if(!cur) return null;
-      const trend=!prev?'→':parseFloat(cur.amount)>parseFloat(prev.amount)?'↑':parseFloat(cur.amount)<parseFloat(prev.amount)?'↓':'→';
+      const trend=!prev?'->':parseFloat(cur.amount)>parseFloat(prev.amount)?'(+)':parseFloat(cur.amount)<parseFloat(prev.amount)?'(-)':'->';
       return `${cat.icon} ${cat.name}: ${fmt(cur.amount)} ${trend}`;
     }).filter(Boolean).join('
 ')||'Sem registos';
