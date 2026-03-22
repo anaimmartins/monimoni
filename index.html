@@ -9,6 +9,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -109,6 +110,12 @@ const DEFAULT_VAULTS=[
 ];
 
 const DEFAULT_PLATFORMS=['Trade Republic','XTB','Maclear'];
+
+const DEFAULT_VAR_CATEGORIES=[
+  {id:'vc1',name:'Eletricidade',color:'#f59e0b',icon:'⚡'},
+  {id:'vc2',name:'Gás',color:'#60a5fa',icon:'🔥'},
+  {id:'vc3',name:'Água',color:'#34d399',icon:'💧'},
+];
 
 const DEFAULT_ASSETS=[
   {id:'a1',label:'S&P 500 (SXR8)',       platform:'Trade Republic', auto:true,  autoAmount:100},
@@ -355,11 +362,12 @@ function Nav({tab,setTab,done,total}){
     {id:'expenses',Icon:IconExpenses,label:'Encargos'},
   ];
   const moreItems=[
-    {id:'josi',   label:'Josi'},
-    {id:'cofres', label:'Cofres'},
-    {id:'invest', label:'Investimentos'},
+    {id:'josi',        label:'Josi'},
+    {id:'cofres',      label:'Cofres'},
+    {id:'invest',      label:'Investimentos'},
+    {id:'varexpenses', label:'Gastos Variáveis'},
   ];
-  const moreActive=['josi','cofres','invest'].includes(tab);
+  const moreActive=['josi','cofres','invest','varexpenses'].includes(tab);
   const goMore=id=>{setTab(id);setMoreOpen(false);};
 
   return(
@@ -1054,6 +1062,366 @@ function More({vaults,snapshots,josi,josiCfg,mk,user,onSaveSnapshots,onSaveJosi,
   );
 }
 
+// ─── VAR CATEGORIES CONFIG ──────────────────────────────────────────────────
+
+function VarCategoriesConfig({categories,onSave,showToast}){
+  const [local,setLocal]=useState(categories);
+  const [newName,setNewName]=useState('');
+  const [newColor,setNewColor]=useState('#a78bfa');
+  const [newIcon,setNewIcon]=useState('💰');
+  const [confirm,setConfirm]=useState(null);
+
+  const add=async()=>{
+    if(!newName.trim())return;
+    const next=[...local,{id:'vc'+Date.now(),name:newName.trim(),color:newColor,icon:newIcon}];
+    setLocal(next); await onSave(next); setNewName(''); showToast('Categoria adicionada ✓');
+  };
+  const del=async id=>{
+    const next=local.filter(c=>c.id!==id);
+    setLocal(next); await onSave(next); setConfirm(null); showToast('Categoria removida');
+  };
+
+  return(
+    <div>
+      <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Categorias</div>
+      {local.map(cat=>(
+        <div key={cat.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#1f2937',borderRadius:'10px',marginBottom:'8px'}}>
+          <span style={{fontSize:'18px'}}>{cat.icon}</span>
+          <span style={{flex:1,fontSize:'14px',color:'#e5e7eb'}}>{cat.name}</span>
+          <div style={{width:'12px',height:'12px',borderRadius:'50%',background:cat.color,flexShrink:0}}/>
+          {cat.id!=='vc1'&&cat.id!=='vc2'&&cat.id!=='vc3'&&(
+            <button onClick={()=>setConfirm(cat.id)} style={{background:'none',border:'none',color:'#f87171',fontSize:'16px',cursor:'pointer',padding:'2px 6px'}}>✕</button>
+          )}
+        </div>
+      ))}
+      <div style={{marginTop:'14px',padding:'12px',background:'rgba(167,139,250,0.06)',border:'1px solid rgba(167,139,250,0.15)',borderRadius:'12px'}}>
+        <div style={{fontSize:'11px',color:'#a78bfa',fontWeight:'600',marginBottom:'10px'}}>Nova Categoria</div>
+        <div style={{display:'flex',gap:'8px',marginBottom:'8px'}}>
+          <input value={newIcon} onChange={e=>setNewIcon(e.target.value)} style={{width:'48px',padding:'8px',background:'#1f2937',border:'1px solid #374151',borderRadius:'8px',color:'#e5e7eb',fontSize:'18px',textAlign:'center',outline:'none'}}/>
+          <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nome da categoria" onKeyDown={e=>e.key==='Enter'&&add()}
+            style={{flex:1,padding:'8px 12px',background:'#1f2937',border:'1px solid #374151',borderRadius:'8px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}/>
+        </div>
+        <div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}}>
+          <label style={{fontSize:'12px',color:'#6b7280'}}>Cor:</label>
+          <input type="color" value={newColor} onChange={e=>setNewColor(e.target.value)} style={{width:'36px',height:'28px',border:'none',borderRadius:'6px',cursor:'pointer',background:'none'}}/>
+          <div style={{width:'12px',height:'12px',borderRadius:'50%',background:newColor}}/>
+        </div>
+        <Btn onClick={add} disabled={!newName.trim()} style={{width:'100%',padding:'10px'}}>+ Adicionar</Btn>
+      </div>
+      {confirm&&<ConfirmModal title="Eliminar Categoria" message="Tens a certeza? Os registos desta categoria não serão apagados." confirmLabel="Eliminar" variant="danger" onConfirm={()=>del(confirm)} onCancel={()=>setConfirm(null)}/>}
+    </div>
+  );
+}
+
+// ─── GASTOS VARIÁVEIS ─────────────────────────────────────────────────────────
+
+function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSaveExpenses}){
+  const [view,setView]=useState('list'); // 'list' | 'chart'
+  const [modal,setModal]=useState(null); // null | 'add' | expense obj
+  const now=new Date(); const curMo=now.getMonth(); const curYr=now.getFullYear();
+
+  // Current month entries
+  const curKey=`${curYr}-${String(curMo+1).padStart(2,'0')}`;
+  const curEntries=expenses.filter(e=>e.monthKey===curKey);
+
+  // Josi amount for current month
+  const josiH=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+  const josiAmt=parseFloat((josiH*josiCfg.rate).toFixed(2));
+
+  const saveEntry=async(data,existingId)=>{
+    let next;
+    if(existingId){
+      next=expenses.map(e=>e.id===existingId?{...e,...data,editedBy:user,editedAt:new Date().toISOString()}:e);
+    } else {
+      next=[...expenses,{id:'ve'+Date.now(),by:user,createdAt:new Date().toISOString(),...data}];
+    }
+    await onSaveExpenses(next); setModal(null); showToast('Guardado ✓');
+  };
+
+  const delEntry=async id=>{
+    await onSaveExpenses(expenses.filter(e=>e.id!==id)); setModal(null); showToast('Removido');
+  };
+
+  return(
+    <div style={{animation:'fadeUp 0.3s ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+        <SecTitle>Gastos Variáveis</SecTitle>
+        <div style={{display:'flex',gap:'8px'}}>
+          <button onClick={()=>setView(v=>v==='list'?'chart':'list')} style={{padding:'8px 14px',borderRadius:'10px',background:'#1f2937',border:'1px solid #374151',color:'#9ca3af',fontSize:'13px',cursor:'pointer'}}>
+            {view==='list'?'📊 Gráfico':'📋 Lista'}
+          </button>
+          {view==='list'&&<Btn onClick={()=>setModal('add')} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>}
+        </div>
+      </div>
+
+      {view==='list'&&(
+        <div>
+          {/* Current month summary */}
+          <Card style={{marginBottom:'14px',background:'linear-gradient(135deg,rgba(167,139,250,0.07),rgba(16,185,129,0.04))'}}>
+            <div style={{color:'#6b7280',fontSize:'11px',textTransform:'uppercase',marginBottom:'10px'}}>{MONTHS[curMo]} {curYr}</div>
+            {categories.map(cat=>{
+              const entry=curEntries.find(e=>e.categoryId===cat.id);
+              return(
+                <div key={cat.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid #1a2332'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <span style={{fontSize:'16px'}}>{cat.icon}</span>
+                    <span style={{fontSize:'13px',color:'#9ca3af'}}>{cat.name}</span>
+                  </div>
+                  {entry
+                    ?<span style={{fontSize:'14px',fontWeight:'600',color:cat.color}}>{fmt(entry.amount)}</span>
+                    :<span style={{fontSize:'12px',color:'#374151'}}>— por registar</span>
+                  }
+                </div>
+              );
+            })}
+            <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0 0',marginTop:'4px'}}>
+              <span style={{fontSize:'13px',color:'#9ca3af',fontWeight:'500'}}>Total</span>
+              <span style={{fontSize:'16px',fontWeight:'700',color:'#a78bfa'}}>{fmt(curEntries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0))}</span>
+            </div>
+          </Card>
+
+          {/* Recent entries */}
+          {expenses.length===0?(
+            <Card style={{textAlign:'center',padding:'40px 16px',color:'#374151'}}>
+              <div style={{fontSize:'40px',marginBottom:'10px'}}>📊</div>
+              <div style={{fontSize:'14px'}}>Sem registos ainda.<br/>Adiciona o primeiro.</div>
+            </Card>
+          ):(
+            <div>
+              <Lbl>Registos Recentes</Lbl>
+              {[...expenses].sort((a,b)=>b.monthKey.localeCompare(a.monthKey)).slice(0,20).map(e=>{
+                const cat=categories.find(c=>c.id===e.categoryId)||{name:e.categoryName,icon:'💰',color:'#6b7280'};
+                return(
+                  <Card key={e.id} style={{padding:'12px',marginBottom:'8px',cursor:'pointer'}} onClick={()=>setModal(e)}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                        <span style={{fontSize:'20px'}}>{cat.icon}</span>
+                        <div>
+                          <div style={{fontSize:'14px',color:'#e5e7eb'}}>{cat.name}</div>
+                          <div style={{fontSize:'11px',color:'#4b5563'}}>{MONTHS[parseInt(e.monthKey.split('-')[1])-1]} {e.monthKey.split('-')[0]} · {e.by}</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:'16px',fontWeight:'700',color:cat.color}}>{fmt(parseFloat(e.amount)||0)}</div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view==='chart'&&(
+        <VarChart categories={categories} expenses={expenses} josi={josi} josiCfg={josiCfg}/>
+      )}
+
+      {modal&&(
+        <VarEntryModal
+          expense={modal==='add'?null:modal}
+          categories={categories}
+          existingKeys={expenses.map(e=>e.categoryId+'_'+e.monthKey)}
+          onSave={saveEntry}
+          onDelete={modal!=='add'?delEntry:null}
+          onClose={()=>setModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function VarEntryModal({expense,categories,existingKeys,onSave,onDelete,onClose}){
+  const now=new Date();
+  const [categoryId,setCategoryId]=useState(expense?.categoryId||categories[0]?.id||'');
+  const [month,setMonth]=useState(expense?parseInt(expense.monthKey.split('-')[1])-1:now.getMonth());
+  const [year,setYear]=useState(expense?parseInt(expense.monthKey.split('-')[0]):now.getFullYear());
+  const [amount,setAmount]=useState(expense?String(expense.amount):'');
+  const [confirm,setConfirm]=useState(false);
+  const [dupWarning,setDupWarning]=useState(false);
+
+  const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
+  const isDup=!expense&&existingKeys.includes(categoryId+'_'+monthKey);
+
+  const save=()=>{
+    if(!amount||!categoryId)return;
+    if(isDup){setDupWarning(true);return;}
+    const cat=categories.find(c=>c.id===categoryId);
+    onSave({categoryId,categoryName:cat?.name||'',monthKey,amount:parseFloat(amount)},expense?.id);
+  };
+
+  const years=[now.getFullYear(),now.getFullYear()-1,now.getFullYear()-2];
+
+  if(confirm)return<ConfirmModal title="Eliminar Registo" message="Tens a certeza?" confirmLabel="Eliminar" variant="danger" onConfirm={()=>onDelete(expense.id)} onCancel={()=>setConfirm(false)}/>;
+
+  return(
+    <Modal title={expense?'Editar Registo':'Novo Registo'} onClose={onClose}>
+      <SelectField label="Categoria" value={categoryId} onChange={v=>{setCategoryId(v);setDupWarning(false);}} options={categories.map(c=>({value:c.id,label:`${c.icon} ${c.name}`}))}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}}>
+        <div>
+          <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Mês</label>
+          <select value={month} onChange={e=>{setMonth(parseInt(e.target.value));setDupWarning(false);}} style={{width:'100%',padding:'12px 10px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+            {MONTHS.map((m,i)=><option key={i} value={i}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Ano</label>
+          <select value={year} onChange={e=>{setYear(parseInt(e.target.value));setDupWarning(false);}} style={{width:'100%',padding:'12px 10px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+            {years.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+      {isDup||dupWarning?(
+        <div style={{padding:'12px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'10px',marginBottom:'14px',fontSize:'13px',color:'#fca5a5'}}>
+          ⚠️ Já existe um registo para esta categoria neste mês. Clica no registo existente para o editar.
+        </div>
+      ):null}
+      <Field label="Valor (€)" type="number" value={amount} onChange={setAmount} placeholder="0,00"/>
+      <Divider/>
+      <div style={{display:'flex',gap:'8px'}}>
+        {onDelete&&<Btn onClick={()=>setConfirm(true)} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={save} disabled={!amount||isDup} style={{flex:1,padding:'14px'}}>{expense?'Guardar':'Adicionar'}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function VarChart({categories,expenses,josi,josiCfg}){
+  const [activeCategories,setActiveCategories]=useState(()=>categories.map(c=>c.id));
+  const [josiActive,setJosiActive]=useState(true);
+  const [viewMonths,setViewMonths]=useState(12);
+  const [viewYear,setViewYear]=useState(null); // null = rolling, number = specific year
+
+  const now=new Date();
+  const {LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,ReferenceLine,ResponsiveContainer}=Recharts;
+
+  // Build month keys for the view
+  const buildKeys=()=>{
+    if(viewYear!==null){
+      return Array.from({length:12},(_,i)=>`${viewYear}-${String(i+1).padStart(2,'0')}`);
+    }
+    const keys=[];
+    for(let i=viewMonths-1;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      keys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    }
+    return keys;
+  };
+
+  const keys=buildKeys();
+
+  // Build chart data
+  const data=keys.map(key=>{
+    const [yr,mo]=key.split('-').map(Number);
+    const label=`${MONTH_SHORT[mo-1]} ${String(yr).slice(2)}`;
+    let total=0;
+    activeCategories.forEach(catId=>{
+      const e=expenses.find(x=>x.categoryId===catId&&x.monthKey===key);
+      if(e) total+=parseFloat(e.amount)||0;
+    });
+    if(josiActive){
+      // Josi - use stored data if available, otherwise 0
+      // We only have current month josi data; for historical we'd need stored
+      // For now show 0 for past months (data not stored per month yet)
+      if(key===`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`){
+        const h=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+        total+=h*josiCfg.rate;
+      }
+    }
+    return {key,label,total};
+  });
+
+  // Trend line - linear regression
+  const validData=data.filter(d=>d.total>0);
+  let trendData=[];
+  if(validData.length>=2){
+    const n=data.length;
+    const xs=data.map((_,i)=>i);
+    const ys=data.map(d=>d.total);
+    const sumX=xs.reduce((a,b)=>a+b,0);
+    const sumY=ys.reduce((a,b)=>a+b,0);
+    const sumXY=xs.reduce((a,x,i)=>a+x*ys[i],0);
+    const sumX2=xs.reduce((a,x)=>a+x*x,0);
+    const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX)||0;
+    const intercept=(sumY-slope*sumX)/n;
+    trendData=data.map((_,i)=>({...data[i],trend:Math.max(0,Math.round(intercept+slope*i))}));
+  } else {
+    trendData=data.map(d=>({...d,trend:d.total}));
+  }
+
+  const avg=validData.length>0?Math.round(validData.reduce((s,d)=>s+d.total,0)/validData.length):0;
+  const years=[now.getFullYear(),now.getFullYear()-1,now.getFullYear()-2];
+
+  const toggleCat=id=>setActiveCategories(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+
+  return(
+    <div>
+      {/* Category toggles */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'16px'}}>
+        {categories.map(cat=>{
+          const on=activeCategories.includes(cat.id);
+          return(
+            <button key={cat.id} onClick={()=>toggleCat(cat.id)} style={{padding:'6px 12px',borderRadius:'20px',border:`1px solid ${on?cat.color:'#374151'}`,background:on?cat.color+'18':'transparent',color:on?cat.color:'#4b5563',fontSize:'12px',cursor:'pointer',display:'flex',alignItems:'center',gap:'4px'}}>
+              {cat.icon} {cat.name}
+            </button>
+          );
+        })}
+        <button onClick={()=>setJosiActive(o=>!o)} style={{padding:'6px 12px',borderRadius:'20px',border:`1px solid ${josiActive?'#f59e0b':'#374151'}`,background:josiActive?'rgba(245,158,11,0.12)':'transparent',color:josiActive?'#f59e0b':'#4b5563',fontSize:'12px',cursor:'pointer'}}>
+          ✦ Josi
+        </button>
+      </div>
+
+      {/* View selector */}
+      <div style={{display:'flex',gap:'6px',marginBottom:'16px',overflowX:'auto'}}>
+        {[{label:'12M',v:12,y:null},{label:'24M',v:24,y:null},{label:'Tudo',v:999,y:null},...years.map(y=>({label:String(y),v:12,y}))].map(opt=>{
+          const active=opt.y!==null?viewYear===opt.y:(viewYear===null&&viewMonths===opt.v);
+          return(
+            <button key={opt.label} onClick={()=>{setViewMonths(opt.v);setViewYear(opt.y);}} style={{padding:'6px 14px',borderRadius:'20px',fontSize:'12px',fontWeight:'500',whiteSpace:'nowrap',border:'none',cursor:'pointer',background:active?'#10b981':'#1f2937',color:active?'#fff':'#6b7280',flexShrink:0}}>
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stats */}
+      {avg>0&&(
+        <Card style={{marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px'}}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Média</div>
+            <div style={{fontSize:'16px',fontWeight:'700',color:'#a78bfa'}}>{fmt(avg)}</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Mínimo</div>
+            <div style={{fontSize:'16px',fontWeight:'700',color:'#34d399'}}>{fmt(Math.min(...validData.map(d=>d.total)))}</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Máximo</div>
+            <div style={{fontSize:'16px',fontWeight:'700',color:'#f87171'}}>{fmt(Math.max(...validData.map(d=>d.total)))}</div>
+          </div>
+        </Card>
+      )}
+
+      {/* Chart */}
+      <Card style={{padding:'12px 4px'}}>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={trendData} margin={{top:5,right:16,left:0,bottom:5}}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937"/>
+            <XAxis dataKey="label" tick={{fill:'#4b5563',fontSize:10}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fill:'#4b5563',fontSize:10}} axisLine={false} tickLine={false} width={50} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(1)}k`:v}/>
+            <Tooltip contentStyle={{background:'#111827',border:'1px solid #1f2937',borderRadius:'10px',color:'#e5e7eb'}} formatter={v=>[fmt(v),'Total']} labelStyle={{color:'#9ca3af'}}/>
+            <ReferenceLine y={avg} stroke="#a78bfa" strokeDasharray="4 4" strokeWidth={1}/>
+            <Line type="monotone" dataKey="total" stroke="#a78bfa" strokeWidth={2.5} dot={{fill:'#a78bfa',r:3}} activeDot={{r:5}}/>
+            <Line type="monotone" dataKey="trend" stroke="#374151" strokeWidth={1.5} strokeDasharray="5 5" dot={false}/>
+          </LineChart>
+        </ResponsiveContainer>
+        <div style={{display:'flex',gap:'16px',justifyContent:'center',marginTop:'8px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'4px'}}><div style={{width:'16px',height:'2px',background:'#a78bfa'}}/><span style={{fontSize:'10px',color:'#6b7280'}}>Total</span></div>
+          <div style={{display:'flex',alignItems:'center',gap:'4px'}}><div style={{width:'16px',height:'2px',background:'#374151',borderTop:'2px dashed #374151'}}/><span style={{fontSize:'10px',color:'#6b7280'}}>Tendência</span></div>
+          <div style={{display:'flex',alignItems:'center',gap:'4px'}}><div style={{width:'16px',height:'2px',background:'#a78bfa',borderTop:'2px dashed #a78bfa'}}/><span style={{fontSize:'10px',color:'#6b7280'}}>Média</span></div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 // ─── JOSI ─────────────────────────────────────────────────────────────────────
 
 function JosiView({entries,cfg,mk,user,onSave,onCfgChange,showToast}){
@@ -1415,7 +1783,7 @@ function VaultForm({vault,onSave,onDelete,onBack}){
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 
-function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,user,onClose,showToast}){
+function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,varCategories,onSaveVarCategories,user,onClose,showToast}){
   const [editTask,setEditTask]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
 
@@ -1452,6 +1820,7 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,user,onClos
 
   const [tasksOpen,setTasksOpen]=useState(false);
   const [emailOpen,setEmailOpen]=useState(false);
+  const [varOpen,setVarOpen]=useState(false);
 
   return(
     <Modal title="Configurações" onClose={onClose}>
@@ -1474,6 +1843,17 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,user,onClos
               <span style={{color:'#374151',fontSize:'14px',flexShrink:0}}>›</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Gastos Variáveis section */}
+      <button onClick={()=>setVarOpen(o=>!o)} style={{width:'100%',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 14px',background:'#1f2937',borderRadius:'12px',border:'none',cursor:'pointer',marginBottom:'8px',minHeight:'44px'}}>
+        <span style={{color:'#e5e7eb',fontSize:'14px',fontWeight:'500'}}>📊 Gastos Variáveis</span>
+        <span style={{color:'#4b5563',fontSize:'12px'}}>{varOpen?'▲':'▼'}</span>
+      </button>
+      {varOpen&&(
+        <div style={{marginBottom:'8px'}}>
+          <VarCategoriesConfig categories={varCategories} onSave={onSaveVarCategories} showToast={showToast}/>
         </div>
       )}
 
@@ -1672,6 +2052,8 @@ function App(){
   const [showSettings,setShowSettings]=useState(false);
   const [josiPayModal,setJosiPayModal]=useState(false);
   const [emailCfg,setEmailCfg]=useState({nocas:'',joao:'',serviceId:'',templateId:'',publicKey:''});
+  const [varCategories,setVarCategories]=useState(DEFAULT_VAR_CATEGORIES);
+  const [varExpenses,setVarExpenses]=useState([]);
 
   useEffect(()=>{
     if(fbReady)return;
@@ -1685,13 +2067,14 @@ function App(){
     Promise.all([
       ld(`cl-${mk}`),ld('snapshots'),ld('inv'),
       ld(`josi-${mk}`),ld('josi-cfg'),ld('cl-hist'),
-      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),
-    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em])=>{
+      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),ld('var-categories'),ld('var-expenses'),
+    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em,vc,ve])=>{
       setCl(c||{}); setSnapshots(sn||[]); setInv(iv||[]);
       setJosi(j||[]); if(jc)setJosiCfg(jc); setHist(h||[]);
       if(ex&&ex.length>0)setExpenses(ex); if(vl&&vl.length>0)setVaults(vl);
       if(as)setAssets(as); if(pl)setPlatforms(pl);
       if(tk)setTasks(tk); if(em)setEmailCfg(em);
+      if(vc&&vc.length>0)setVarCategories(vc); if(ve)setVarExpenses(ve);
       setReady(true);
     });
   },[fbReady,authed]);
@@ -1826,6 +2209,8 @@ function App(){
       onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
       onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
       onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
+    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} user={user} showToast={showToast}
+      onSaveExpenses={async v=>{setVarExpenses(v);await sv('var-expenses',v);}}/>,
   };
 
   return(
@@ -1839,6 +2224,7 @@ function App(){
       {showSettings&&<Settings tasks={tasks} user={user} showToast={showToast} onClose={()=>setShowSettings(false)}
         emailCfg={emailCfg} onSaveEmail={async v=>{setEmailCfg(v);await sv('email-config',v);}}
         onSendTest={()=>sendMonthlyEmail(`Teste — ${MONTHS[mo]} ${yr}`,cl,josi,inv,expenses,snapshots)}
+        varCategories={varCategories} onSaveVarCategories={async v=>{setVarCategories(v);await sv('var-categories',v);}}
         onSaveTasks={async v=>{setTasks(v);await sv('tasks',v);}}/>}
       {toast&&<Toast msg={toast.msg} ok={toast.ok}/>}
     </div>
