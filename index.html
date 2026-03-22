@@ -9,7 +9,6 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -1264,6 +1263,432 @@ function VarChart({categories,expenses,josi,josiCfg}){
   const [activeCategories,setActiveCategories]=useState(()=>categories.map(c=>c.id));
   const [josiActive,setJosiActive]=useState(true);
   const [viewMonths,setViewMonths]=useState(12);
+  const [viewYear,setViewYear]=useState(null);
+  const [tooltip,setTooltip]=useState(null);
+
+  const now=new Date();
+  const years=[now.getFullYear(),now.getFullYear()-1,now.getFullYear()-2];
+
+  const buildKeys=()=>{
+    if(viewYear!==null){
+      return Array.from({length:12},(_,i)=>`${viewYear}-${String(i+1).padStart(2,'0')}`);
+    }
+    const keys=[];
+    const count=viewMonths===999?Math.max(24,expenses.length>0?Math.ceil((new Date()-new Date(expenses.sort((a,b)=>a.monthKey.localeCompare(b.monthKey))[0]?.monthKey||now))/2592000000)+1:12):viewMonths;
+    for(let i=count-1;i>=0;i--){
+      const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+      keys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    }
+    return keys;
+  };
+
+  const keys=buildKeys();
+
+  const data=keys.map(key=>{
+    const [yr,mo]=key.split('-').map(Number);
+    const label=`${MONTH_SHORT[mo-1]} ${String(yr).slice(2)}`;
+    let total=0;
+    activeCategories.forEach(catId=>{
+      const e=expenses.find(x=>x.categoryId===catId&&x.monthKey===key);
+      if(e) total+=parseFloat(e.amount)||0;
+    });
+    if(josiActive&&key===`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`){
+      const h=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+      total+=h*josiCfg.rate;
+    }
+    return {key,label,total};
+  });
+
+  const validData=data.filter(d=>d.total>0);
+  const maxVal=Math.max(...data.map(d=>d.total),1);
+  const avg=validData.length>0?Math.round(validData.reduce((s,d)=>s+d.total,0)/validData.length):0;
+
+  // Linear regression for trend
+  const n=data.length;
+  const xs=data.map((_,i)=>i);
+  const ys=data.map(d=>d.total);
+  const sumX=xs.reduce((a,b)=>a+b,0);
+  const sumY=ys.reduce((a,b)=>a+b,0);
+  const sumXY=xs.reduce((a,x,i)=>a+x*ys[i],0);
+  const sumX2=xs.reduce((a,x)=>a+x*x,0);
+  const denom=n*sumX2-sumX*sumX;
+  const slope=denom!==0?(n*sumXY-sumX*sumY)/denom:0;
+  const intercept=(sumY-slope*sumX)/n;
+  const trendPoints=data.map((_,i)=>Math.max(0,intercept+slope*i));
+
+  const toggleCat=id=>setActiveCategories(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
+
+  // SVG dimensions
+  const W=320; const H=180;
+  const padL=48; const padR=12; const padT=16; const padB=32;
+  const gW=W-padL-padR; const gH=H-padT-padB;
+
+  const xPos=i=>padL+i*(gW/(Math.max(data.length-1,1)));
+  const yPos=v=>padT+gH-(v/maxVal)*gH;
+
+  const linePath=data.map((d,i)=>`${i===0?'M':'L'}${xPos(i).toFixed(1)},${yPos(d.total).toFixed(1)}`).join(' ');
+  const trendPath=trendPoints.map((v,i)=>`${i===0?'M':'L'}${xPos(i).toFixed(1)},${yPos(v).toFixed(1)}`).join(' ');
+  const avgY=yPos(avg);
+
+  // X labels - show every nth
+  const step=Math.ceil(data.length/6);
+
+  return(
+    <div>
+      {/* Category toggles */}
+      <div style={{display:'flex',flexWrap:'wrap',gap:'6px',marginBottom:'16px'}}>
+        {categories.map(cat=>{
+          const on=activeCategories.includes(cat.id);
+          return(
+            <button key={cat.id} onClick={()=>toggleCat(cat.id)} style={{padding:'6px 12px',borderRadius:'20px',border:`1px solid ${on?cat.color:'#374151'}`,background:on?cat.color+'18':'transparent',color:on?cat.color:'#4b5563',fontSize:'12px',cursor:'pointer'}}>
+              {cat.icon} {cat.name}
+            </button>
+          );
+        })}
+        <button onClick={()=>setJosiActive(o=>!o)} style={{padding:'6px 12px',borderRadius:'20px',border:`1px solid ${josiActive?'#f59e0b':'#374151'}`,background:josiActive?'rgba(245,158,11,0.12)':'transparent',color:josiActive?'#f59e0b':'#4b5563',fontSize:'12px',cursor:'pointer'}}>
+          ✦ Josi
+        </button>
+      </div>
+
+      {/* View selector */}
+      <div style={{display:'flex',gap:'6px',marginBottom:'16px',overflowX:'auto',paddingBottom:'2px'}}>
+        {[{label:'12M',v:12,y:null},{label:'24M',v:24,y:null},{label:'Tudo',v:999,y:null},...years.map(y=>({label:String(y),v:12,y}))].map(opt=>{
+          const active=opt.y!==null?viewYear===opt.y:(viewYear===null&&viewMonths===opt.v);
+          return(
+            <button key={opt.label} onClick={()=>{setViewMonths(opt.v);setViewYear(opt.y);}} style={{padding:'6px 14px',borderRadius:'20px',fontSize:'12px',fontWeight:'500',whiteSpace:'nowrap',border:'none',cursor:'pointer',background:active?'#10b981':'#1f2937',color:active?'#fff':'#6b7280',flexShrink:0,minHeight:'32px'}}>
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stats */}
+      {avg>0&&(
+        <Card style={{marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px'}}>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Média</div>
+            <div style={{fontSize:'16px',fontWeight:'700',color:'#a78bfa'}}>{fmt(avg)}</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Mínimo</div>
+            <div style={{fontSize:'16px',fontWeight:'700',color:'#34d399'}}>{fmt(Math.min(...validData.map(d=>d.total)))}</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            <div style={{fontSize:'10px',color:'#4b5563',textTransform:'uppercase',marginBottom:'3px'}}>Máximo</div>
+            <div style={{fontSize:'16px',fontWeight:'700',color:'#f87171'}}>{fmt(Math.max(...validData.map(d=>d.total)))}</div>
+          </div>
+        </Card>
+      )}
+
+      {/* SVG Chart */}
+      <Card style={{padding:'12px 8px 8px',position:'relative'}}>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:'visible'}}>
+          {/* Grid lines */}
+          {[0,0.25,0.5,0.75,1].map(f=>{
+            const y=padT+gH*(1-f);
+            return(
+              <g key={f}>
+                <line x1={padL} y1={y} x2={W-padR} y2={y} stroke="#1f2937" strokeWidth="1"/>
+                <text x={padL-4} y={y+4} textAnchor="end" fill="#4b5563" fontSize="9">
+                  {Math.round(maxVal*f)>=1000?`${(maxVal*f/1000).toFixed(1)}k`:Math.round(maxVal*f)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Avg line */}
+          {avg>0&&<line x1={padL} y1={avgY} x2={W-padR} y2={avgY} stroke="#a78bfa" strokeWidth="1" strokeDasharray="4 3"/>}
+
+          {/* Trend line */}
+          {validData.length>=2&&<path d={trendPath} fill="none" stroke="#374151" strokeWidth="1.5" strokeDasharray="5 4"/>}
+
+          {/* Main line */}
+          <path d={linePath} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+
+          {/* Area fill */}
+          <path d={`${linePath} L${xPos(data.length-1).toFixed(1)},${padT+gH} L${xPos(0).toFixed(1)},${padT+gH} Z`} fill="url(#areaGrad)" opacity="0.15"/>
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.8"/>
+              <stop offset="100%" stopColor="#a78bfa" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+
+          {/* Dots + tooltip triggers */}
+          {data.map((d,i)=>(
+            <g key={i}>
+              <circle cx={xPos(i)} cy={yPos(d.total)} r="10" fill="transparent"
+                onMouseEnter={()=>setTooltip({i,d})} onMouseLeave={()=>setTooltip(null)}
+                onTouchStart={()=>setTooltip(t=>t?.i===i?null:{i,d})}
+                style={{cursor:'pointer'}}/>
+              {d.total>0&&<circle cx={xPos(i)} cy={yPos(d.total)} r="3.5" fill="#a78bfa" stroke="#0d1117" strokeWidth="1.5"/>}
+            </g>
+          ))}
+
+          {/* X labels */}
+          {data.map((d,i)=>i%step===0&&(
+            <text key={i} x={xPos(i)} y={H-6} textAnchor="middle" fill="#4b5563" fontSize="9">{d.label}</text>
+          ))}
+
+          {/* Tooltip */}
+          {tooltip&&(()=>{
+            const tx=xPos(tooltip.i);
+            const ty=yPos(tooltip.d.total);
+            const boxW=80; const boxH=36;
+            const bx=Math.min(Math.max(tx-boxW/2,padL),W-padR-boxW);
+            const by=ty-boxH-8<padT?ty+8:ty-boxH-8;
+            return(
+              <g>
+                <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#1a2332" stroke="#374151" strokeWidth="1"/>
+                <text x={bx+boxW/2} y={by+14} textAnchor="middle" fill="#9ca3af" fontSize="9">{tooltip.d.label}</text>
+                <text x={bx+boxW/2} y={by+28} textAnchor="middle" fill="#a78bfa" fontSize="11" fontWeight="bold">{fmt(tooltip.d.total)}</text>
+              </g>
+            );
+          })()}
+        </svg>
+
+        {/* Legend */}
+        <div style={{display:'flex',gap:'16px',justifyContent:'center',marginTop:'4px',flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'4px'}}><div style={{width:'16px',height:'2.5px',background:'#a78bfa',borderRadius:'2px'}}/><span style={{fontSize:'10px',color:'#6b7280'}}>Total</span></div>
+          <div style={{display:'flex',alignItems:'center',gap:'4px'}}><div style={{width:'16px',height:'0',borderTop:'2px dashed #374151'}}/><span style={{fontSize:'10px',color:'#6b7280'}}>Tendência</span></div>
+          <div style={{display:'flex',alignItems:'center',gap:'4px'}}><div style={{width:'16px',height:'0',borderTop:'2px dashed #a78bfa'}}/><span style={{fontSize:'10px',color:'#6b7280'}}>Média</span></div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
+function VarCategoriesConfig({categories,onSave,showToast}){
+  const [local,setLocal]=useState(categories);
+  const [newName,setNewName]=useState('');
+  const [newColor,setNewColor]=useState('#a78bfa');
+  const [newIcon,setNewIcon]=useState('💰');
+  const [confirm,setConfirm]=useState(null);
+
+  const add=async()=>{
+    if(!newName.trim())return;
+    const next=[...local,{id:'vc'+Date.now(),name:newName.trim(),color:newColor,icon:newIcon}];
+    setLocal(next); await onSave(next); setNewName(''); showToast('Categoria adicionada ✓');
+  };
+  const del=async id=>{
+    const next=local.filter(c=>c.id!==id);
+    setLocal(next); await onSave(next); setConfirm(null); showToast('Categoria removida');
+  };
+
+  return(
+    <div>
+      <div style={{color:'#4b5563',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'12px'}}>Categorias</div>
+      {local.map(cat=>(
+        <div key={cat.id} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',background:'#1f2937',borderRadius:'10px',marginBottom:'8px'}}>
+          <span style={{fontSize:'18px'}}>{cat.icon}</span>
+          <span style={{flex:1,fontSize:'14px',color:'#e5e7eb'}}>{cat.name}</span>
+          <div style={{width:'12px',height:'12px',borderRadius:'50%',background:cat.color,flexShrink:0}}/>
+          {cat.id!=='vc1'&&cat.id!=='vc2'&&cat.id!=='vc3'&&(
+            <button onClick={()=>setConfirm(cat.id)} style={{background:'none',border:'none',color:'#f87171',fontSize:'16px',cursor:'pointer',padding:'2px 6px'}}>✕</button>
+          )}
+        </div>
+      ))}
+      <div style={{marginTop:'14px',padding:'12px',background:'rgba(167,139,250,0.06)',border:'1px solid rgba(167,139,250,0.15)',borderRadius:'12px'}}>
+        <div style={{fontSize:'11px',color:'#a78bfa',fontWeight:'600',marginBottom:'10px'}}>Nova Categoria</div>
+        <div style={{display:'flex',gap:'8px',marginBottom:'8px'}}>
+          <input value={newIcon} onChange={e=>setNewIcon(e.target.value)} style={{width:'48px',padding:'8px',background:'#1f2937',border:'1px solid #374151',borderRadius:'8px',color:'#e5e7eb',fontSize:'18px',textAlign:'center',outline:'none'}}/>
+          <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nome da categoria" onKeyDown={e=>e.key==='Enter'&&add()}
+            style={{flex:1,padding:'8px 12px',background:'#1f2937',border:'1px solid #374151',borderRadius:'8px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}/>
+        </div>
+        <div style={{display:'flex',gap:'8px',alignItems:'center',marginBottom:'8px'}}>
+          <label style={{fontSize:'12px',color:'#6b7280'}}>Cor:</label>
+          <input type="color" value={newColor} onChange={e=>setNewColor(e.target.value)} style={{width:'36px',height:'28px',border:'none',borderRadius:'6px',cursor:'pointer',background:'none'}}/>
+          <div style={{width:'12px',height:'12px',borderRadius:'50%',background:newColor}}/>
+        </div>
+        <Btn onClick={add} disabled={!newName.trim()} style={{width:'100%',padding:'10px'}}>+ Adicionar</Btn>
+      </div>
+      {confirm&&<ConfirmModal title="Eliminar Categoria" message="Tens a certeza? Os registos desta categoria não serão apagados." confirmLabel="Eliminar" variant="danger" onConfirm={()=>del(confirm)} onCancel={()=>setConfirm(null)}/>}
+    </div>
+  );
+}
+
+// ─── GASTOS VARIÁVEIS ─────────────────────────────────────────────────────────
+
+function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSaveExpenses,addActivity}){
+  const [view,setView]=useState('list'); // 'list' | 'chart'
+  const [modal,setModal]=useState(null); // null | 'add' | expense obj
+  const now=new Date(); const curMo=now.getMonth(); const curYr=now.getFullYear();
+
+  // Current month entries
+  const curKey=`${curYr}-${String(curMo+1).padStart(2,'0')}`;
+  const curEntries=expenses.filter(e=>e.monthKey===curKey);
+
+  // Josi amount for current month
+  const josiH=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+  const josiAmt=parseFloat((josiH*josiCfg.rate).toFixed(2));
+
+  const saveEntry=async(data,existingId)=>{
+    let next;
+    const cat=categories.find(cc=>cc.id===data.categoryId);
+    if(existingId){
+      next=expenses.map(e=>e.id===existingId?{...e,...data,editedBy:user,editedAt:new Date().toISOString()}:e);
+      addActivity&&addActivity('✏️','#6b7280',`Editado: ${cat?.name||data.categoryName}`,fmt(parseFloat(data.amount)||0));
+    } else {
+      next=[...expenses,{id:'ve'+Date.now(),by:user,createdAt:new Date().toISOString(),...data}];
+      addActivity&&addActivity('📊','#a78bfa',`${cat?.icon||''} ${cat?.name||data.categoryName}`,fmt(parseFloat(data.amount)||0));
+    }
+    await onSaveExpenses(next); setModal(null); showToast('Guardado ✓');
+  };
+
+  const delEntry=async id=>{
+    const e=expenses.find(x=>x.id===id);
+    const cat=categories.find(cc=>cc.id===e?.categoryId);
+    await onSaveExpenses(expenses.filter(x=>x.id!==id)); setModal(null); showToast('Removido');
+    addActivity&&addActivity('🗑','#6b7280',`Eliminado: ${cat?.name||e?.categoryName||''}`,null);
+  };
+
+  return(
+    <div style={{animation:'fadeUp 0.3s ease'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+        <SecTitle>Gastos Variáveis</SecTitle>
+        <div style={{display:'flex',gap:'8px'}}>
+          <button onClick={()=>setView(v=>v==='list'?'chart':'list')} style={{padding:'8px 14px',borderRadius:'10px',background:'#1f2937',border:'1px solid #374151',color:'#9ca3af',fontSize:'13px',cursor:'pointer'}}>
+            {view==='list'?'📊 Gráfico':'📋 Lista'}
+          </button>
+          {view==='list'&&<Btn onClick={()=>setModal('add')} style={{padding:'8px 16px',fontSize:'13px'}}>+ Novo</Btn>}
+        </div>
+      </div>
+
+      {view==='list'&&(
+        <div>
+          {/* Current month summary */}
+          <Card style={{marginBottom:'14px',background:'linear-gradient(135deg,rgba(167,139,250,0.07),rgba(16,185,129,0.04))'}}>
+            <div style={{color:'#6b7280',fontSize:'11px',textTransform:'uppercase',marginBottom:'10px'}}>{MONTHS[curMo]} {curYr}</div>
+            {categories.map(cat=>{
+              const entry=curEntries.find(e=>e.categoryId===cat.id);
+              return(
+                <div key={cat.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:'1px solid #1a2332'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <span style={{fontSize:'16px'}}>{cat.icon}</span>
+                    <span style={{fontSize:'13px',color:'#9ca3af'}}>{cat.name}</span>
+                  </div>
+                  {entry
+                    ?<span style={{fontSize:'14px',fontWeight:'600',color:cat.color}}>{fmt(entry.amount)}</span>
+                    :<span style={{fontSize:'12px',color:'#374151'}}>— por registar</span>
+                  }
+                </div>
+              );
+            })}
+            <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0 0',marginTop:'4px'}}>
+              <span style={{fontSize:'13px',color:'#9ca3af',fontWeight:'500'}}>Total</span>
+              <span style={{fontSize:'16px',fontWeight:'700',color:'#a78bfa'}}>{fmt(curEntries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0))}</span>
+            </div>
+          </Card>
+
+          {/* Recent entries */}
+          {expenses.length===0?(
+            <Card style={{textAlign:'center',padding:'40px 16px',color:'#374151'}}>
+              <div style={{fontSize:'40px',marginBottom:'10px'}}>📊</div>
+              <div style={{fontSize:'14px'}}>Sem registos ainda.<br/>Adiciona o primeiro.</div>
+            </Card>
+          ):(
+            <div>
+              <Lbl>Registos Recentes</Lbl>
+              {[...expenses].sort((a,b)=>b.monthKey.localeCompare(a.monthKey)).slice(0,20).map(e=>{
+                const cat=categories.find(c=>c.id===e.categoryId)||{name:e.categoryName,icon:'💰',color:'#6b7280'};
+                return(
+                  <Card key={e.id} style={{padding:'12px',marginBottom:'8px',cursor:'pointer'}} onClick={()=>setModal(e)}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                        <span style={{fontSize:'20px'}}>{cat.icon}</span>
+                        <div>
+                          <div style={{fontSize:'14px',color:'#e5e7eb'}}>{cat.name}</div>
+                          <div style={{fontSize:'11px',color:'#4b5563'}}>{MONTHS[parseInt(e.monthKey.split('-')[1])-1]} {e.monthKey.split('-')[0]} · {e.by}</div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:'16px',fontWeight:'700',color:cat.color}}>{fmt(parseFloat(e.amount)||0)}</div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view==='chart'&&(
+        <VarChart categories={categories} expenses={expenses} josi={josi} josiCfg={josiCfg}/>
+      )}
+
+      {modal&&(
+        <VarEntryModal
+          expense={modal==='add'?null:modal}
+          categories={categories}
+          allExpenses={expenses}
+          onSave={saveEntry}
+          onDelete={modal!=='add'?delEntry:null}
+          onClose={()=>setModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function VarEntryModal({expense,categories,allExpenses,onSave,onDelete,onClose}){
+  const now=new Date();
+  const [categoryId,setCategoryId]=useState(expense?.categoryId||categories[0]?.id||'');
+  const [month,setMonth]=useState(expense?parseInt(expense.monthKey.split('-')[1])-1:now.getMonth());
+  const [year,setYear]=useState(expense?parseInt(expense.monthKey.split('-')[0]):now.getFullYear());
+  const [amount,setAmount]=useState(expense?String(expense.amount):'');
+  const [confirm,setConfirm]=useState(false);
+  const [dupWarning,setDupWarning]=useState(false);
+
+  const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
+  const isDup=!expense&&allExpenses.some(e=>e.categoryId===categoryId&&e.monthKey===monthKey);
+
+  const save=()=>{
+    if(!amount||!categoryId)return;
+    if(isDup){setDupWarning(true);return;}
+    const cat=categories.find(c=>c.id===categoryId);
+    onSave({categoryId,categoryName:cat?.name||'',monthKey,amount:parseFloat(amount)},expense?.id);
+  };
+
+  const years=[now.getFullYear(),now.getFullYear()-1,now.getFullYear()-2];
+
+  if(confirm)return<ConfirmModal title="Eliminar Registo" message="Tens a certeza?" confirmLabel="Eliminar" variant="danger" onConfirm={()=>onDelete(expense.id)} onCancel={()=>setConfirm(false)}/>;
+
+  return(
+    <Modal title={expense?'Editar Registo':'Novo Registo'} onClose={onClose}>
+      <SelectField label="Categoria" value={categoryId} onChange={v=>{setCategoryId(v);setDupWarning(false);}} options={categories.map(c=>({value:c.id,label:`${c.icon} ${c.name}`}))}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}}>
+        <div>
+          <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Mês</label>
+          <select value={month} onChange={e=>{setMonth(parseInt(e.target.value));setDupWarning(false);}} style={{width:'100%',padding:'12px 10px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+            {MONTHS.map((m,i)=><option key={i} value={i}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'6px'}}>Ano</label>
+          <select value={year} onChange={e=>{setYear(parseInt(e.target.value));setDupWarning(false);}} style={{width:'100%',padding:'12px 10px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+            {years.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+      {isDup||dupWarning?(
+        <div style={{padding:'12px',background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.2)',borderRadius:'10px',marginBottom:'14px',fontSize:'13px',color:'#fca5a5'}}>
+          ⚠️ Já existe um registo para esta categoria neste mês. Clica no registo existente para o editar.
+        </div>
+      ):null}
+      <Field label="Valor (€)" type="number" value={amount} onChange={setAmount} placeholder="0,00"/>
+      <Divider/>
+      <div style={{display:'flex',gap:'8px'}}>
+        {onDelete&&<Btn onClick={()=>setConfirm(true)} variant="danger" style={{padding:'12px 16px'}}>🗑</Btn>}
+        <Btn onClick={save} disabled={!amount||isDup} style={{flex:1,padding:'14px'}}>{expense?'Guardar':'Adicionar'}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function VarChart({categories,expenses,josi,josiCfg}){
+  const [activeCategories,setActiveCategories]=useState(()=>categories.map(c=>c.id));
+  const [josiActive,setJosiActive]=useState(true);
+  const [viewMonths,setViewMonths]=useState(12);
   const [viewYear,setViewYear]=useState(null); // null = rolling, number = specific year
 
   const now=new Date();
@@ -2137,8 +2562,7 @@ function App(){
       if(!cur) return null;
       const trend=!prev?'->':parseFloat(cur.amount)>parseFloat(prev.amount)?'(+)':parseFloat(cur.amount)<parseFloat(prev.amount)?'(-)':'->';
       return `${cat.icon} ${cat.name}: ${fmt(cur.amount)} ${trend}`;
-    }).filter(Boolean).join('
-')||'Sem registos';
+    }).filter(Boolean).join(', ')||'Sem registos';
 
     const templateParams={
       month_label: monthLabel,
