@@ -2113,8 +2113,8 @@ function App(){
     Promise.all([
       ld(`cl-${mk}`),ld('snapshots'),ld('inv'),
       ld(`josi-${mk}`),ld('josi-cfg'),ld('cl-hist'),
-      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),ld('var-categories'),ld('var-expenses'),
-    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em,vc,ve])=>{
+      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),ld('var-categories'),ld('var-expenses'),ld('activity-log'),
+    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em,vc,ve,al])=>{
       setCl(c||{}); setSnapshots(sn||[]); setInv(iv||[]);
       setJosi(j||[]); if(jc)setJosiCfg(jc); setHist(h||[]);
       if(ex&&ex.length>0)setExpenses(ex); if(vl&&vl.length>0)setVaults(vl);
