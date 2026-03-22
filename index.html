@@ -439,7 +439,7 @@ function ActivityFeed({events}){
   );
 }
 
-function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,activityLog,onNavigate,onHistView}){
+function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,tasks,onNavigate,onHistView}){
   const now=new Date(); const mo=now.getMonth();
   const pct=total>0?Math.round((done/total)*100):0;
   const monthInv=inv.filter(i=>i.mk===mk);
@@ -517,7 +517,41 @@ function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,activit
       </Card>
 
       {/* Atividade Recente */}
-      {activityLog&&activityLog.length>0&&<ActivityFeed events={activityLog}/>}
+      {(()=>{
+        const events=[];
+        // Tasks - marked and unmarked
+        Object.entries(cl||{}).forEach(([id,s])=>{
+          if(!s||!s.done) return;
+          const task=tasks.find(t=>t.id===id);
+          if(!task) return;
+          events.push({at:s.at,icon:'✓',color:'#10b981',label:task.label,meta:s.by,sub:s.paidAmount?fmt(s.paidAmount)+' pagos':null});
+        });
+        // Investments
+        inv.forEach(i=>{
+          if(i.editedAt) events.push({at:i.editedAt,icon:'✏️',color:'#6b7280',label:`Editado: ${i.asset}`,meta:i.editedBy,sub:fmt(parseFloat(i.amount)||0)});
+          events.push({at:i.date,icon:'↗',color:'#34d399',label:i.asset,meta:i.by,sub:`${fmt(parseFloat(i.amount)||0)} · ${i.platform}`});
+        });
+        // Snapshots
+        snapshots.forEach(s=>{
+          if(s.editedAt) events.push({at:s.editedAt,icon:'✏️',color:'#6b7280',label:'Snapshot editado',meta:s.editedBy,sub:null});
+          events.push({at:s.date,icon:'◈',color:'#60a5fa',label:'Cofres atualizados',meta:s.by,sub:null});
+        });
+        // Josi hours
+        josi.forEach(e=>{
+          events.push({at:e.at||e.date+'T00:00:00',icon:'✦',color:'#f59e0b',label:`Josi — ${parseFloat(e.hours).toFixed(1)}h`,meta:e.by,sub:fmt(parseFloat(e.hours)*josiCfg.rate)});
+        });
+        // Expenses
+        expenses.filter(e=>e.createdAt).forEach(e=>{
+          events.push({at:e.createdAt,icon:'€',color:'#f87171',label:`Novo encargo: ${e.name}`,meta:e.createdBy,sub:fmt(e.amount)});
+        });
+        expenses.filter(e=>e.editedAt).forEach(e=>{
+          events.push({at:e.editedAt,icon:'✏️',color:'#6b7280',label:`Encargo editado: ${e.name}`,meta:e.editedBy,sub:fmt(e.amount)});
+        });
+
+        events.sort((a,b)=>new Date(b.at)-new Date(a.at));
+        if(!events.length) return null;
+        return <ActivityFeed events={events}/>;
+      })()}
 
       {/* History */}
       {hist.length>0&&(
@@ -2173,8 +2207,9 @@ function App(){
     const doneCount=actionTasks.filter(t=>clData[t.id]?.done).length;
     const notDone=actionTasks.filter(t=>!clData[t.id]?.done).map(t=>t.label).join(', ')||'Todas concluídas ✓';
     const josiH=josiData.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
-    const josiTotal=josiH*josiCfg.rate;
     const josiPaid=!!clData['josi']?.done;
+    const josiPaidAmount=clData['josi']?.paidAmount||0;
+    const josiTotal=josiPaid?josiPaidAmount:josiH*josiCfg.rate;
     const monthInv=invData.filter(i=>i.mk===mk);
     const invTotal=monthInv.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
     const byPlat={};monthInv.forEach(i=>{if(!byPlat[i.platform])byPlat[i.platform]=0;byPlat[i.platform]+=parseFloat(i.amount)||0;});
@@ -2270,7 +2305,7 @@ function App(){
   const done=actionTasks.filter(t=>cl[t.id]?.done).length;
 
   const views={
-    home:<Home done={done} total={actionTasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} activityLog={activityLog} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
+    home:<Home done={done} total={actionTasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} tasks={tasks} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
     tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
 
     expenses:<Expenses expenses={expenses} user={user} addActivity={addActivity} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
