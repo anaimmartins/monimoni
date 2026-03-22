@@ -9,7 +9,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.5.0/Recharts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -247,7 +247,7 @@ function PasswordScreen({onSuccess}){
     setLoading(true);
     const stored=await ld('app-password');
     const correct=stored||'monimoni';
-    if(pw===correct){onSuccess();}
+    if(pw===correct){sessionStorage.setItem('mm_authed','1');onSuccess();}
     else{setErr(true);setPw('');setLoading(false);}
   };
 
@@ -440,7 +440,7 @@ function ActivityFeed({events}){
   );
 }
 
-function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,onNavigate,onHistView}){
+function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,activityLog,onNavigate,onHistView}){
   const now=new Date(); const mo=now.getMonth();
   const pct=total>0?Math.round((done/total)*100):0;
   const monthInv=inv.filter(i=>i.mk===mk);
@@ -518,44 +518,7 @@ function Home({done,total,cl,mk,inv,josi,josiCfg,expenses,snapshots,hist,onNavig
       </Card>
 
       {/* Atividade Recente */}
-      {(()=>{
-        const events=[];
-        // Tasks
-        DEFAULT_TASKS.filter(t=>cl&&cl[t.id]?.done).forEach(t=>{
-          const s=cl[t.id];
-          events.push({at:s.at,icon:'✓',color:'#10b981',label:t.label,meta:s.by,sub:s.paidAmount?`${fmt(s.paidAmount)} pagos`:null});
-        });
-        // Investments
-        inv.forEach(i=>{
-          events.push({at:i.date,icon:'↗',color:'#34d399',label:i.asset,meta:i.by,sub:`${fmt(parseFloat(i.amount)||0)} · ${i.platform}`});
-          if(i.editedAt) events.push({at:i.editedAt,icon:'✏️',color:'#6b7280',label:`Editado: ${i.asset}`,meta:i.editedBy,sub:fmt(parseFloat(i.amount)||0)});
-        });
-        // Snapshots
-        snapshots.forEach(s=>{
-          const total=Object.values(s.vals||{}).filter((_,i2)=>{
-            const keys=Object.keys(s.vals||{});
-            return keys[i2].endsWith('_f1');
-          }).reduce((sum,v)=>sum+(parseFloat(v)||0),0);
-          events.push({at:s.date,icon:'◈',color:'#60a5fa',label:'Cofres atualizados',meta:s.by,sub:null});
-          if(s.editedAt) events.push({at:s.editedAt,icon:'✏️',color:'#6b7280',label:'Snapshot editado',meta:s.editedBy,sub:null});
-        });
-        // Josi hours
-        josi.forEach(e=>{
-          events.push({at:e.at||e.date,icon:'✦',color:'#f59e0b',label:`Josi — ${parseFloat(e.hours).toFixed(1)}h`,meta:e.by,sub:fmt(parseFloat(e.hours)*josiCfg.rate)});
-        });
-        // Expenses changes
-        expenses.filter(e=>e.createdAt).forEach(e=>{
-          events.push({at:e.createdAt,icon:'€',color:'#f87171',label:`Novo encargo: ${e.name}`,meta:e.createdBy,sub:fmt(e.amount)});
-        });
-        expenses.filter(e=>e.editedAt).forEach(e=>{
-          events.push({at:e.editedAt,icon:'✏️',color:'#6b7280',label:`Encargo editado: ${e.name}`,meta:e.editedBy,sub:fmt(e.amount)});
-        });
-
-        events.sort((a,b)=>new Date(b.at)-new Date(a.at));
-        if(!events.length) return null;
-
-        return <ActivityFeed events={events}/>;
-      })()}
+      {activityLog&&activityLog.length>0&&<ActivityFeed events={activityLog}/>}
 
       {/* History */}
       {hist.length>0&&(
@@ -649,7 +612,7 @@ function Tasks({tasks,cl,onToggle}){
 
 // ─── EXPENSES ─────────────────────────────────────────────────────────────────
 
-function Expenses({expenses,onSave,user}){
+function Expenses({expenses,onSave,user,addActivity}){
   const [modal,setModal]=useState(null); // null | 'add' | expense obj
   const now=new Date(); const mo=now.getMonth();
 
@@ -667,15 +630,19 @@ function Expenses({expenses,onSave,user}){
     let next;
     if(data.id&&expenses.find(e=>e.id===data.id)){
       next=expenses.map(e=>e.id===data.id?{...data,editedBy:user,editedAt:new Date().toISOString()}:e);
+      addActivity&&addActivity('✏️','#6b7280',`Encargo editado: ${data.name}`,fmt(data.amount));
     } else {
       next=[...expenses,{...data,id:'e'+Date.now(),createdBy:user,createdAt:new Date().toISOString()}];
+      addActivity&&addActivity('€','#f87171',`Novo encargo: ${data.name}`,fmt(data.amount));
     }
     await onSave(next); setModal(null);
   };
 
   const del=async id=>{
+    const exp=expenses.find(e=>e.id===id);
     const next=expenses.filter(e=>e.id!==id);
     await onSave(next); setModal(null);
+    addActivity&&addActivity('🗑','#6b7280',`Encargo eliminado: ${exp?.name||''}`,null);
   };
 
   const ExpRow=({exp})=>(
@@ -789,7 +756,7 @@ function ExpenseModal({expense,onSave,onDelete,onClose}){
 
 // ─── INVEST ───────────────────────────────────────────────────────────────────
 
-function Invest({inv,mk,assets,platforms,onSaveInv,onSaveAssets,onSavePlatforms,user}){
+function Invest({inv,mk,assets,platforms,onSaveInv,onSaveAssets,onSavePlatforms,user,addActivity}){
   const [modal,setModal]=useState(null);
   const [editItem,setEditItem]=useState(null);
 
@@ -801,16 +768,19 @@ function Invest({inv,mk,assets,platforms,onSaveInv,onSaveAssets,onSavePlatforms,
     let next;
     if(editItem){
       next=inv.map(i=>i.id===editItem.id?{...i,...data,editedBy:user,editedAt:new Date().toISOString()}:i);
+      addActivity&&addActivity('✏️','#6b7280',`Editado: ${data.asset}`,fmt(parseFloat(data.amount)||0));
     } else {
       next=[{id:Date.now(),date:new Date().toISOString(),mk,by:user,...data},...inv];
+      addActivity&&addActivity('↗','#34d399',`Investimento: ${data.asset}`,fmt(parseFloat(data.amount)||0));
     }
     await onSaveInv(next); setModal(null); setEditItem(null);
   };
 
   const delEntry=async id=>{
     const entry=inv.find(i=>i.id===id);
-    const next=inv.map(i=>i.id===id?{...i,deleted:true,deletedBy:user,deletedAt:new Date().toISOString()}:i).filter(i=>!i.deleted);
+    const next=inv.filter(i=>i.id!==id);
     await onSaveInv(next); setModal(null); setEditItem(null);
+    addActivity&&addActivity('🗑','#6b7280',`Eliminado: ${entry?.asset||''}`,null);
   };
 
   const InvRow=({item})=>(
@@ -1115,7 +1085,7 @@ function VarCategoriesConfig({categories,onSave,showToast}){
 
 // ─── GASTOS VARIÁVEIS ─────────────────────────────────────────────────────────
 
-function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSaveExpenses}){
+function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSaveExpenses,addActivity}){
   const [view,setView]=useState('list'); // 'list' | 'chart'
   const [modal,setModal]=useState(null); // null | 'add' | expense obj
   const now=new Date(); const curMo=now.getMonth(); const curYr=now.getFullYear();
@@ -1130,16 +1100,22 @@ function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSave
 
   const saveEntry=async(data,existingId)=>{
     let next;
+    const cat=categories.find(cc=>cc.id===data.categoryId);
     if(existingId){
       next=expenses.map(e=>e.id===existingId?{...e,...data,editedBy:user,editedAt:new Date().toISOString()}:e);
+      addActivity&&addActivity('✏️','#6b7280',`Editado: ${cat?.name||data.categoryName}`,fmt(parseFloat(data.amount)||0));
     } else {
       next=[...expenses,{id:'ve'+Date.now(),by:user,createdAt:new Date().toISOString(),...data}];
+      addActivity&&addActivity('📊','#a78bfa',`${cat?.icon||''} ${cat?.name||data.categoryName}`,fmt(parseFloat(data.amount)||0));
     }
     await onSaveExpenses(next); setModal(null); showToast('Guardado ✓');
   };
 
   const delEntry=async id=>{
-    await onSaveExpenses(expenses.filter(e=>e.id!==id)); setModal(null); showToast('Removido');
+    const e=expenses.find(x=>x.id===id);
+    const cat=categories.find(cc=>cc.id===e?.categoryId);
+    await onSaveExpenses(expenses.filter(x=>x.id!==id)); setModal(null); showToast('Removido');
+    addActivity&&addActivity('🗑','#6b7280',`Eliminado: ${cat?.name||e?.categoryName||''}`,null);
   };
 
   return(
@@ -1219,7 +1195,7 @@ function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSave
         <VarEntryModal
           expense={modal==='add'?null:modal}
           categories={categories}
-          existingKeys={expenses.map(e=>e.categoryId+'_'+e.monthKey)}
+          allExpenses={expenses}
           onSave={saveEntry}
           onDelete={modal!=='add'?delEntry:null}
           onClose={()=>setModal(null)}
@@ -1229,7 +1205,7 @@ function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSave
   );
 }
 
-function VarEntryModal({expense,categories,existingKeys,onSave,onDelete,onClose}){
+function VarEntryModal({expense,categories,allExpenses,onSave,onDelete,onClose}){
   const now=new Date();
   const [categoryId,setCategoryId]=useState(expense?.categoryId||categories[0]?.id||'');
   const [month,setMonth]=useState(expense?parseInt(expense.monthKey.split('-')[1])-1:now.getMonth());
@@ -1239,7 +1215,7 @@ function VarEntryModal({expense,categories,existingKeys,onSave,onDelete,onClose}
   const [dupWarning,setDupWarning]=useState(false);
 
   const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
-  const isDup=!expense&&existingKeys.includes(categoryId+'_'+monthKey);
+  const isDup=!expense&&allExpenses.some(e=>e.categoryId===categoryId&&e.monthKey===monthKey);
 
   const save=()=>{
     if(!amount||!categoryId)return;
@@ -1424,7 +1400,7 @@ function VarChart({categories,expenses,josi,josiCfg}){
 
 // ─── JOSI ─────────────────────────────────────────────────────────────────────
 
-function JosiView({entries,cfg,mk,user,onSave,onCfgChange,showToast}){
+function JosiView({entries,cfg,mk,user,onSave,onCfgChange,showToast,addActivity}){
   const [modal,setModal]=useState(false);
   const [editRate,setEditRate]=useState(false);
   const [rateVal,setRateVal]=useState(String(cfg.rate));
@@ -1438,10 +1414,13 @@ function JosiView({entries,cfg,mk,user,onSave,onCfgChange,showToast}){
   const saveEntry=async data=>{
     const next=[...entries,{id:Date.now(),by:user,at:new Date().toISOString(),...data}].sort((a,b)=>a.date.localeCompare(b.date));
     await onSave(next); setModal(false); showToast('Guardado ✓');
+    addActivity&&addActivity('✦','#f59e0b',`Josi — ${parseFloat(data.hours).toFixed(1)}h`,fmt(parseFloat(data.hours)*cfg.rate));
   };
   const del=async id=>{
-    const next=entries.filter(e=>e.id!==id);
+    const e=entries.find(x=>x.id===id);
+    const next=entries.filter(x=>x.id!==id);
     await onSave(next); showToast('Removido');
+    addActivity&&addActivity('🗑','#6b7280',`Removido: Josi ${parseFloat(e?.hours||0).toFixed(1)}h`,null);
   };
 
   return(
@@ -1527,7 +1506,7 @@ function JosiForm({onSave,onClose}){
 
 // ─── COFRES ───────────────────────────────────────────────────────────────────
 
-function Cofres({vaults,snapshots,user,onSaveSnapshots,onSaveVaults,showToast}){
+function Cofres({vaults,snapshots,user,onSaveSnapshots,onSaveVaults,showToast,addActivity}){
   const [modal,setModal]=useState(null); // null | 'new-snapshot' | 'manage-vaults'
   const [openSnap,setOpenSnap]=useState(snapshots[0]?.id??null);
   const [editSnap,setEditSnap]=useState(null);
@@ -1537,16 +1516,18 @@ function Cofres({vaults,snapshots,user,onSaveSnapshots,onSaveVaults,showToast}){
     let next;
     if(existingId){
       next=snapshots.map(s=>s.id===existingId?{...s,vals,editedBy:user,editedAt:new Date().toISOString()}:s);
+      addActivity&&addActivity('✏️','#6b7280','Snapshot editado',null);
     } else {
       next=[{id:Date.now(),date:new Date().toISOString(),by:user,vals},...snapshots];
+      addActivity&&addActivity('◈','#60a5fa','Cofres atualizados',null);
     }
     await onSaveSnapshots(next); setModal(null); setEditSnap(null); showToast(existingId?'Snapshot atualizado ✓':'Snapshot guardado ✓');
   };
 
   const delSnap=async id=>{
-    const snap=snapshots.find(s=>s.id===id);
     const next=snapshots.filter(s=>s.id!==id);
     await onSaveSnapshots(next); setConfirmDel(null); showToast('Snapshot eliminado');
+    addActivity&&addActivity('🗑','#6b7280','Snapshot eliminado',null);
   };
 
   return(
@@ -2031,9 +2012,9 @@ function App(){
   const mk=mkKey(yr,mo);
 
   const [fbReady,setFbReady]=useState(!!window._fbReady);
-  const [authed,setAuthed]=useState(false);
+  const [authed,setAuthed]=useState(()=>sessionStorage.getItem('mm_authed')==='1');
   const [ready,setReady]=useState(false);
-  const [user,setUser]=useState(null);
+  const [user,setUser]=useState(()=>sessionStorage.getItem('mm_user')||null);
   const [tab,setTab]=useState('home');
   const [cl,setCl]=useState({});
   const [snapshots,setSnapshots]=useState([]);
@@ -2054,6 +2035,7 @@ function App(){
   const [emailCfg,setEmailCfg]=useState({nocas:'',joao:'',serviceId:'',templateId:'',publicKey:''});
   const [varCategories,setVarCategories]=useState(DEFAULT_VAR_CATEGORIES);
   const [varExpenses,setVarExpenses]=useState([]);
+  const [activityLog,setActivityLog]=useState([]);
 
   useEffect(()=>{
     if(fbReady)return;
@@ -2075,6 +2057,7 @@ function App(){
       if(as)setAssets(as); if(pl)setPlatforms(pl);
       if(tk)setTasks(tk); if(em)setEmailCfg(em);
       if(vc&&vc.length>0)setVarCategories(vc); if(ve)setVarExpenses(ve);
+      if(al)setActivityLog(al);
       setReady(true);
     });
   },[fbReady,authed]);
@@ -2098,18 +2081,27 @@ function App(){
 
   if(!fbReady||(!ready&&authed)) return <Splash msg={!fbReady?'A ligar ao Firebase…':'A carregar…'}/>;
   if(!authed) return <PasswordScreen onSuccess={()=>setAuthed(true)}/>;
-  if(!user) return <LoginScreen onSelect={setUser}/>;
+  if(!user) return <LoginScreen onSelect={u=>{setUser(u);sessionStorage.setItem('mm_user',u);}}/>;
 
   const showToast=(msg,ok=true)=>{setToast({msg,ok});setTimeout(()=>setToast(null),2200);};
 
   const handleMenuAction=async action=>{
-    if(action==='switch-user'){setUser(null);}
+    if(action==='switch-user'){setUser(null);sessionStorage.removeItem('mm_user');}
     else if(action==='new-month'){setShowNewMonth(true);}
     else if(action==='settings'){setShowSettings(true);}
-    else if(action==='logout'){setUser(null);setAuthed(false);}
+    else if(action==='logout'){setUser(null);setAuthed(false);sessionStorage.removeItem('mm_authed');sessionStorage.removeItem('mm_user');}
   };
 
-  const sendMonthlyEmail=async(monthLabel,clData,josiData,invData,expData,snapData)=>{
+  const addActivity=async(icon,color,label,sub=null)=>{
+    const entry={id:Date.now(),at:new Date().toISOString(),by:user,icon,color,label,sub};
+    setActivityLog(prev=>{
+      const next=[entry,...prev].slice(0,200);
+      sv('activity-log',next);
+      return next;
+    });
+  };
+
+  const sendMonthlyEmail=async(monthLabel,clData,josiData,invData,expData,snapData,varExp,varCats)=>{
     if(!emailCfg.serviceId||!emailCfg.templateId||!emailCfg.publicKey) return;
     const recipients=[emailCfg.nocas,emailCfg.joao].filter(Boolean);
     if(!recipients.length) return;
@@ -2132,6 +2124,22 @@ function App(){
     const lastSnap=snapData[0];
     const snapTotal=lastSnap?Object.values(lastSnap.vals).reduce((s,v)=>s+(parseFloat(v)||0),0):0;
 
+    // Gastos variáveis current month
+    const curMoKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const prevMoDate=new Date(now.getFullYear(),now.getMonth()-1,1);
+    const prevMoKey=`${prevMoDate.getFullYear()}-${String(prevMoDate.getMonth()+1).padStart(2,'0')}`;
+    const varCurEntries=(varExp||[]).filter(e=>e.monthKey===curMoKey);
+    const varPrevEntries=(varExp||[]).filter(e=>e.monthKey===prevMoKey);
+    const varTotal=varCurEntries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    const varDetail=(varCats||[]).map(cat=>{
+      const cur=varCurEntries.find(e=>e.categoryId===cat.id);
+      const prev=varPrevEntries.find(e=>e.categoryId===cat.id);
+      if(!cur) return null;
+      const trend=!prev?'→':parseFloat(cur.amount)>parseFloat(prev.amount)?'↑':parseFloat(cur.amount)<parseFloat(prev.amount)?'↓':'→';
+      return `${cat.icon} ${cat.name}: ${fmt(cur.amount)} ${trend}`;
+    }).filter(Boolean).join('
+')||'Sem registos';
+
     const templateParams={
       month_label: monthLabel,
       tasks_done: `${doneCount}/${actionTasks.length}`,
@@ -2147,6 +2155,8 @@ function App(){
       cofres_total: lastSnap?fmt(snapTotal):'Sem snapshot',
       cofres_date: lastSnap?fmtD(lastSnap.date):'—',
       initiated_by: user,
+      var_total: fmt(varTotal),
+      var_detail: varDetail,
     };
 
     try {
@@ -2168,23 +2178,26 @@ function App(){
     setCl({}); await sv(`cl-${mk}`,{});
     setJosi([]); await sv(`josi-${mk}`,[]);
     setShowNewMonth(false); showToast('Novo mês iniciado ✓');
-    sendMonthlyEmail(`${MONTHS[mo]} ${yr}`, cl, josi, inv, expenses, snapshots);
+    sendMonthlyEmail(`${MONTHS[mo]} ${yr}`, cl, josi, inv, expenses, snapshots, varExpenses, varCategories);
   };
 
   const toggle=async id=>{
-    // Special handling for Josi payment task
-    if(id==='josi'&&!cl[id]?.done){
-      setJosiPayModal(true);
-      return;
-    }
-    const next={...cl,[id]:cl[id]?.done?null:{done:true,by:user,at:new Date().toISOString()}};
+    if(id==='josi'&&!cl[id]?.done){setJosiPayModal(true);return;}
+    const wasDone=!!cl[id]?.done;
+    const next={...cl,[id]:wasDone?null:{done:true,by:user,at:new Date().toISOString()}};
     setCl(next); const ok=await sv(`cl-${mk}`,next);
+    if(ok){
+      const task=tasks.find(t=>t.id===id);
+      if(wasDone) addActivity('✗','#f87171',`Desmarcado: ${task?.label||id}`,null);
+      else addActivity('✓','#10b981',`Concluído: ${task?.label||id}`,null);
+    }
     showToast(ok?'Guardado ✓':'Erro ao guardar ✗',ok);
   };
 
   const confirmJosiPay=async(amount)=>{
     const next={...cl,josi:{done:true,by:user,at:new Date().toISOString(),paidAmount:amount}};
     setCl(next); const ok=await sv(`cl-${mk}`,next);
+    if(ok) addActivity('💶','#10b981','Josi paga',fmt(amount));
     setJosiPayModal(false);
     showToast(ok?`Pagamento de ${fmt(amount)} registado ✓`:'Erro ao guardar ✗',ok);
   };
@@ -2194,22 +2207,22 @@ function App(){
   const done=actionTasks.filter(t=>cl[t.id]?.done).length;
 
   const views={
-    home:<Home done={done} total={actionTasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
+    home:<Home done={done} total={actionTasks.length} cl={cl} mk={mk} inv={inv} josi={josi} josiCfg={josiCfg} expenses={expenses} snapshots={snapshots} hist={hist} activityLog={activityLog} onNavigate={t=>setTab(t)} onHistView={setHistView}/>,
     tasks:<Tasks tasks={tasks} cl={cl} onToggle={toggle}/>,
 
-    expenses:<Expenses expenses={expenses} user={user} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
+    expenses:<Expenses expenses={expenses} user={user} addActivity={addActivity} onSave={async ex=>{setExpenses(ex);await sv('expenses',ex);showToast('Encargos guardados ✓');}}/>,
 
-    josi:<JosiView entries={josi} cfg={josiCfg} mk={mk} user={user} showToast={showToast}
+    josi:<JosiView entries={josi} cfg={josiCfg} mk={mk} user={user} showToast={showToast} addActivity={addActivity}
       onSave={async v=>{setJosi(v);await sv(`josi-${mk}`,v);}}
       onCfgChange={async v=>{setJosiCfg(v);await sv('josi-cfg',v);}}/>,
-    cofres:<Cofres vaults={vaults} snapshots={snapshots} user={user} showToast={showToast}
+    cofres:<Cofres vaults={vaults} snapshots={snapshots} user={user} showToast={showToast} addActivity={addActivity}
       onSaveSnapshots={async v=>{setSnapshots(v);await sv('snapshots',v);}}
       onSaveVaults={async v=>{setVaults(v);await sv('vaults',v);}}/>,
-    invest:<Invest inv={inv} mk={mk} assets={assets} platforms={platforms} user={user}
+    invest:<Invest inv={inv} mk={mk} assets={assets} platforms={platforms} user={user} addActivity={addActivity}
       onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
       onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
       onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
-    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} user={user} showToast={showToast}
+    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} user={user} showToast={showToast} addActivity={addActivity}
       onSaveExpenses={async v=>{setVarExpenses(v);await sv('var-expenses',v);}}/>,
   };
 
@@ -2223,7 +2236,7 @@ function App(){
       {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} cl={cl} josiPaid={!!cl['josi']?.done} josiAmt={jH*josiCfg.rate} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
       {showSettings&&<Settings tasks={tasks} user={user} showToast={showToast} onClose={()=>setShowSettings(false)}
         emailCfg={emailCfg} onSaveEmail={async v=>{setEmailCfg(v);await sv('email-config',v);}}
-        onSendTest={()=>sendMonthlyEmail(`Teste — ${MONTHS[mo]} ${yr}`,cl,josi,inv,expenses,snapshots)}
+        onSendTest={()=>sendMonthlyEmail(`Teste — ${MONTHS[mo]} ${yr}`,cl,josi,inv,expenses,snapshots,varExpenses,varCategories)}
         varCategories={varCategories} onSaveVarCategories={async v=>{setVarCategories(v);await sv('var-categories',v);}}
         onSaveTasks={async v=>{setTasks(v);await sv('tasks',v);}}/>}
       {toast&&<Toast msg={toast.msg} ok={toast.ok}/>}
