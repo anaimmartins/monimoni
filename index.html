@@ -426,7 +426,8 @@ function ActivityFeed({events}){
           </div>
           <div style={{textAlign:'right',flexShrink:0}}>
             <div style={{fontSize:'11px',color:'#4b5563'}}>{e.meta}</div>
-            <div style={{fontSize:'10px',color:'#374151',marginTop:'1px'}}>{fmtT(e.at)}</div>
+            <div style={{fontSize:'10px',color:'#374151',marginTop:'1px'}}>{fmtD(e.at)}</div>
+            <div style={{fontSize:'10px',color:'#374151'}}>{fmtT(e.at)}</div>
           </div>
         </div>
       ))}
@@ -1118,7 +1119,7 @@ function VarCategoriesConfig({categories,onSave,showToast}){
 
 // ─── GASTOS VARIÁVEIS ─────────────────────────────────────────────────────────
 
-function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSaveExpenses,addActivity}){
+function GastosVariaveis({categories,expenses,josi,josiCfg,josiHist,user,showToast,onSaveExpenses,addActivity}){
   const [view,setView]=useState('list'); // 'list' | 'chart'
   const [modal,setModal]=useState(null); // null | 'add' | expense obj
   const now=new Date(); const curMo=now.getMonth(); const curYr=now.getFullYear();
@@ -1221,7 +1222,7 @@ function GastosVariaveis({categories,expenses,josi,josiCfg,user,showToast,onSave
       )}
 
       {view==='chart'&&(
-        <VarChart categories={categories} expenses={expenses} josi={josi} josiCfg={josiCfg}/>
+        <VarChart categories={categories} expenses={expenses} josi={josi} josiCfg={josiCfg} josiHist={josiHist||[]} mk={mk}/>
       )}
 
       {modal&&(
@@ -1293,7 +1294,7 @@ function VarEntryModal({expense,categories,allExpenses,onSave,onDelete,onClose})
   );
 }
 
-function VarChart({categories,expenses,josi,josiCfg}){
+function VarChart({categories,expenses,josi,josiCfg,josiHist,mk}){
   const [activeCategories,setActiveCategories]=useState(()=>categories.map(c=>c.id));
   const [josiActive,setJosiActive]=useState(true);
   const [viewMonths,setViewMonths]=useState(12);
@@ -1326,9 +1327,16 @@ function VarChart({categories,expenses,josi,josiCfg}){
       const e=expenses.find(x=>x.categoryId===catId&&x.monthKey===key);
       if(e) total+=parseFloat(e.amount)||0;
     });
-    if(josiActive&&key===`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`){
-      const h=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
-      total+=h*josiCfg.rate;
+    if(josiActive){
+      if(key===mk){
+        // Current month - use live josi data
+        const h=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0);
+        total+=h*josiCfg.rate;
+      } else {
+        // Past months - use saved history
+        const hist=josiHist.find(x=>x.mk===key);
+        if(hist) total+=parseFloat(hist.amount)||0;
+      }
     }
     return {key,label,total};
   });
@@ -1886,7 +1894,7 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,varCategori
   if(editTask){
     return(
       <Modal title={editTask==='new'?'Nova Tarefa':'Editar Tarefa'} onClose={()=>setEditTask(null)}>
-        <TaskForm task={editTask==='new'?null:editTask} onSave={saveTask} onDelete={editTask!=='new'?setConfirmDel:null} onBack={()=>setEditTask(null)}/>
+        <TaskForm key={editTask==='new'?'new':editTask.id} task={editTask==='new'?null:editTask} onSave={saveTask} onDelete={editTask!=='new'?setConfirmDel:null} onBack={()=>setEditTask(null)}/>
         {confirmDel&&(
           <ConfirmModal title="Eliminar Tarefa" message="Esta tarefa será eliminada. Confirmas?"
             confirmLabel="Eliminar" variant="danger"
@@ -2073,12 +2081,17 @@ function JosiPayModal({amount, onConfirm, onClose}){
 }
 
 function NewMonthModal({currentMk,hist,cl,josiPaid,josiAmt,onConfirm,onClose}){
-  const now=new Date(); const mo=now.getMonth(); const yr=now.getFullYear();
-  const nextMo=(mo+1)%12; const nextYr=mo===11?yr+1:yr;
-  const nextMk=mkKey(nextYr,nextMo);
+  const now=new Date();
+  const curMo=parseInt(currentMk.split('-')[1])-1;
+  const curYr=parseInt(currentMk.split('-')[0]);
+  const defNextMo=(curMo+1)%12; const defNextYr=curMo===11?curYr+1:curYr;
+  const [selMo,setSelMo]=useState(defNextMo);
+  const [selYr,setSelYr]=useState(defNextYr);
+  const nextMk=mkKey(selYr,selMo);
   const alreadyExists=hist.some(h=>h.key===nextMk);
-  const currentLabel=`${MONTHS[mo]} ${yr}`;
-  const nextLabel=`${MONTHS[nextMo]} ${nextYr}`;
+  const currentLabel=`${MONTHS[curMo]} ${curYr}`;
+  const nextLabel=`${MONTHS[selMo]} ${selYr}`;
+  const years=[now.getFullYear(),now.getFullYear()+1];
 
   return(
     <Modal title="Iniciar Novo Mês" onClose={onClose}>
@@ -2094,10 +2107,21 @@ function NewMonthModal({currentMk,hist,cl,josiPaid,josiAmt,onConfirm,onClose}){
           ⚠️ A Josi ainda não foi paga este mês — <strong>{fmt(josiAmt)}</strong> em aberto.
         </div>
       )}
-      <div style={{fontSize:'13px',color:'#6b7280',marginBottom:'20px'}}>O novo mês será <strong style={{color:'#e5e7eb'}}>{nextLabel}</strong>. As tarefas e horas da Josi serão reiniciadas.</div>
+      <div style={{marginBottom:'16px'}}>
+        <label style={{display:'block',color:'#6b7280',fontSize:'11px',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:'8px'}}>Novo mês a abrir</label>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+          <select value={selMo} onChange={e=>setSelMo(parseInt(e.target.value))} style={{padding:'12px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+            {MONTHS.map((m,i)=><option key={i} value={i}>{m}</option>)}
+          </select>
+          <select value={selYr} onChange={e=>setSelYr(parseInt(e.target.value))} style={{padding:'12px',background:'#1f2937',border:'1px solid #374151',borderRadius:'12px',color:'#e5e7eb',fontSize:'14px',outline:'none'}}>
+            {years.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{fontSize:'13px',color:'#6b7280',marginBottom:'20px'}}>As tarefas e horas da Josi serão reiniciadas para <strong style={{color:'#e5e7eb'}}>{nextLabel}</strong>.</div>
       <div style={{display:'flex',gap:'10px'}}>
         <Btn onClick={onClose} variant="secondary" style={{flex:1}}>Cancelar</Btn>
-        <Btn onClick={onConfirm} variant="warning" style={{flex:1}}>Confirmar</Btn>
+        <Btn onClick={()=>onConfirm(nextMk,nextLabel)} variant="warning" style={{flex:1}}>Confirmar</Btn>
       </div>
     </Modal>
   );
@@ -2107,7 +2131,8 @@ function NewMonthModal({currentMk,hist,cl,josiPaid,josiAmt,onConfirm,onClose}){
 
 function App(){
   const now=new Date(); const yr=now.getFullYear(); const mo=now.getMonth();
-  const mk=mkKey(yr,mo);
+  const [activeMk,setActiveMk]=useState(()=>sessionStorage.getItem('mm_activemk')||mkKey(yr,mo));
+  const mk=activeMk;
 
   const [fbReady,setFbReady]=useState(!!window._fbReady);
   const [authed,setAuthed]=useState(()=>sessionStorage.getItem('mm_authed')==='1');
@@ -2134,6 +2159,7 @@ function App(){
   const [varCategories,setVarCategories]=useState(DEFAULT_VAR_CATEGORIES);
   const [varExpenses,setVarExpenses]=useState([]);
   const [activityLog,setActivityLog]=useState([]);
+  const [josiHist,setJosiHist]=useState([]);
 
   useEffect(()=>{
     if(fbReady)return;
@@ -2147,8 +2173,8 @@ function App(){
     Promise.all([
       ld(`cl-${mk}`),ld('snapshots'),ld('inv'),
       ld(`josi-${mk}`),ld('josi-cfg'),ld('cl-hist'),
-      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),ld('var-categories'),ld('var-expenses'),ld('activity-log'),
-    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em,vc,ve,al])=>{
+      ld('expenses'),ld('vaults'),ld('assets'),ld('platforms'),ld('tasks'),ld('email-config'),ld('var-categories'),ld('var-expenses'),ld('activity-log'),ld('josi-hist'),
+    ]).then(([c,sn,iv,j,jc,h,ex,vl,as,pl,tk,em,vc,ve,al,jh])=>{
       setCl(c||{}); setSnapshots(sn||[]); setInv(iv||[]);
       setJosi(j||[]); if(jc)setJosiCfg(jc); setHist(h||[]);
       if(ex&&ex.length>0)setExpenses(ex); if(vl&&vl.length>0)setVaults(vl);
@@ -2156,9 +2182,18 @@ function App(){
       if(tk)setTasks(tk); if(em)setEmailCfg(em);
       if(vc&&vc.length>0)setVarCategories(vc); if(ve)setVarExpenses(ve);
       if(al)setActivityLog(al);
+      if(jh)setJosiHist(jh);
       setReady(true);
     });
   },[fbReady,authed]);
+
+  // Reload cl and josi when activeMk changes
+  useEffect(()=>{
+    if(!ready) return;
+    Promise.all([ld(`cl-${mk}`),ld(`josi-${mk}`)]).then(([newCl,newJosi])=>{
+      setCl(newCl||{}); setJosi(newJosi||[]);
+    });
+  },[mk]);
 
   // Auto-inject periodic expense tasks for current month
   useEffect(()=>{
@@ -2269,14 +2304,22 @@ function App(){
     }
   };
 
-  const doNewMonth=async()=>{
-    const entry={key:mk,label:`${MONTHS[mo]} ${yr}`,data:cl,at:new Date().toISOString(),by:user};
+  const doNewMonth=async(newMk,newLabel)=>{
+    const curMo=parseInt(mk.split('-')[1])-1;
+    const curYr=parseInt(mk.split('-')[0]);
+    const curLabel=`${MONTHS[curMo]} ${curYr}`;
+    const entry={key:mk,label:curLabel,data:cl,at:new Date().toISOString(),by:user};
     const h=[entry,...hist];
     setHist(h); await sv('cl-hist',h);
-    setCl({}); await sv(`cl-${mk}`,{});
-    setJosi([]); await sv(`josi-${mk}`,[]);
-    setShowNewMonth(false); showToast('Novo mês iniciado ✓');
-    sendMonthlyEmail(`${MONTHS[mo]} ${yr}`, cl, josi, inv, expenses, snapshots, varExpenses, varCategories);
+    setCl({}); await sv(`cl-${newMk}`,{});
+    setJosi([]); await sv(`josi-${newMk}`,[]);
+    // Save Josi total for archived month
+    const josiMonthTotal=josi.reduce((s,e)=>s+(parseFloat(e.hours)||0),0)*josiCfg.rate;
+    const newJosiHist=[...josiHist.filter(x=>x.mk!==mk),{mk,amount:josiMonthTotal}];
+    setJosiHist(newJosiHist); await sv('josi-hist',newJosiHist);
+    setActiveMk(newMk); sessionStorage.setItem('mm_activemk',newMk);
+    setShowNewMonth(false); showToast(`${newLabel} iniciado ✓`);
+    sendMonthlyEmail(curLabel, cl, josi, inv, expenses, snapshots, varExpenses, varCategories);
   };
 
   const toggle=async id=>{
@@ -2320,18 +2363,18 @@ function App(){
       onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
       onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
       onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
-    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} user={user} showToast={showToast} addActivity={addActivity}
+    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} josiHist={josiHist} user={user} showToast={showToast} addActivity={addActivity}
       onSaveExpenses={async v=>{setVarExpenses(v);await sv('var-expenses',v);}}/>,
   };
 
   return(
     <div style={{background:'#0d1117',minHeight:'100vh',maxWidth:'480px',margin:'0 auto',paddingBottom:'80px'}}>
-      <Header user={user} month={MONTHS[mo]} year={yr} onMenuAction={handleMenuAction}/>
+      <Header user={user} month={MONTHS[parseInt(activeMk.split('-')[1])-1]} year={parseInt(activeMk.split('-')[0])} onMenuAction={handleMenuAction}/>
       <main style={{padding:'16px 16px 24px'}}>{views[tab]}</main>
       <Nav tab={tab} setTab={setTab} done={done} total={actionTasks.length}/>
       {josiPayModal&&<JosiPayModal amount={jH*josiCfg.rate} onConfirm={confirmJosiPay} onClose={()=>setJosiPayModal(false)}/>}
       {histView&&<HistModal entry={histView} onClose={()=>setHistView(null)}/>}
-      {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} cl={cl} josiPaid={!!cl['josi']?.done} josiAmt={jH*josiCfg.rate} onConfirm={doNewMonth} onClose={()=>setShowNewMonth(false)}/>}
+      {showNewMonth&&<NewMonthModal currentMk={mk} hist={hist} cl={cl} josiPaid={!!cl['josi']?.done} josiAmt={jH*josiCfg.rate} onConfirm={(newMk,newLabel)=>doNewMonth(newMk,newLabel)} onClose={()=>setShowNewMonth(false)}/>}
       {showSettings&&<Settings tasks={tasks} user={user} showToast={showToast} onClose={()=>setShowSettings(false)}
         emailCfg={emailCfg} onSaveEmail={async v=>{setEmailCfg(v);await sv('email-config',v);}}
         onSendTest={()=>sendMonthlyEmail(`Teste — ${MONTHS[mo]} ${yr}`,cl,josi,inv,expenses,snapshots,varExpenses,varCategories)}
