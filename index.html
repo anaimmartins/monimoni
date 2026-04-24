@@ -1119,7 +1119,7 @@ function VarCategoriesConfig({categories,onSave,showToast}){
 
 // ─── GASTOS VARIÁVEIS ─────────────────────────────────────────────────────────
 
-function GastosVariaveis({categories,expenses,josi,josiCfg,josiHist,user,showToast,onSaveExpenses,addActivity}){
+function GastosVariaveis({categories,expenses,josi,josiCfg,josiHist,mk,user,showToast,onSaveExpenses,addActivity}){
   const [view,setView]=useState('list'); // 'list' | 'chart'
   const [modal,setModal]=useState(null); // null | 'add' | expense obj
   const now=new Date(); const curMo=now.getMonth(); const curYr=now.getFullYear();
@@ -2362,7 +2362,7 @@ function App(){
       onSaveInv={async v=>{setInv(v);await sv('inv',v);}}
       onSaveAssets={async v=>{setAssets(v);await sv('assets',v);}}
       onSavePlatforms={async v=>{setPlatforms(v);await sv('platforms',v);}}/>,
-    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} josiHist={josiHist} user={user} showToast={showToast} addActivity={addActivity}
+    varexpenses:<GastosVariaveis categories={varCategories} expenses={varExpenses} josi={josi} josiCfg={josiCfg} josiHist={josiHist} mk={mk} user={user} showToast={showToast} addActivity={addActivity}
       onSaveExpenses={async v=>{setVarExpenses(v);await sv('var-expenses',v);}}/>,
   };
 
