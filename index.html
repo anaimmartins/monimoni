@@ -1873,6 +1873,9 @@ function VaultForm({vault,onSave,onDelete,onBack}){
 function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,varCategories,onSaveVarCategories,user,onClose,showToast}){
   const [editTask,setEditTask]=useState(null);
   const [confirmDel,setConfirmDel]=useState(null);
+  const [tasksOpen,setTasksOpen]=useState(false);
+  const [emailOpen,setEmailOpen]=useState(false);
+  const [varOpen,setVarOpen]=useState(false);
 
   const saveTask=async(data,affect)=>{
     let next;
@@ -1904,10 +1907,6 @@ function Settings({tasks,onSaveTasks,emailCfg,onSaveEmail,onSendTest,varCategori
       </Modal>
     );
   }
-
-  const [tasksOpen,setTasksOpen]=useState(false);
-  const [emailOpen,setEmailOpen]=useState(false);
-  const [varOpen,setVarOpen]=useState(false);
 
   return(
     <Modal title="Configurações" onClose={onClose}>
