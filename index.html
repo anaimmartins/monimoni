@@ -308,23 +308,32 @@ window.MM_DATA = {
         const seed = makeSeed();
         const now = new Date();
         const todayIdx = now.getMonth(), todayYear = now.getFullYear();
-        // Correct currentMonth if it's in the future relative to today
+        const todayKey = `${todayYear}-${String(todayIdx+1).padStart(2,'0')}`;
+
+        // Correct currentMonth if it's in the future
         let cm = newState.currentMonth || seed.currentMonth;
         if (cm.year > todayYear || (cm.year === todayYear && cm.idx > todayIdx)) {
           cm = { idx: todayIdx, year: todayYear };
         }
+
+        // Strip future months — only keep months up to today
+        const filteredMonths = {};
+        Object.entries(newState.months||{}).forEach(([k, v]) => {
+          if (k <= todayKey) filteredMonths[k] = v;
+        });
+
         state = { ...seed, ...newState,
           currentMonth: cm,
-          months: { ...seed.months, ...(newState.months||{}) },
+          months: { ...seed.months, ...filteredMonths },
           encargos: newState.encargos||seed.encargos,
           cofres: newState.cofres||seed.cofres,
           investimentos: newState.investimentos||seed.investimentos,
           banks: newState.banks||seed.banks,
         };
-        // Ensure the corrected month exists
-        const key = `${cm.year}-${String(cm.idx+1).padStart(2,'0')}`;
-        if (!state.months[key]) {
-          state.months[key] = { tasks:[], activity:[], investimentosMonth:[], josi:{rate:7.5,workerName:'Josi',sessions:[]}, variaveis:{} };
+
+        // Ensure current month exists
+        if (!state.months[todayKey]) {
+          state.months[todayKey] = { tasks:[], activity:[], investimentosMonth:[], josi:{rate:7.5,workerName:'Josi',sessions:[]}, variaveis:{} };
         }
       } catch(e) { state = makeSeed(); }
       notify();
@@ -3272,12 +3281,12 @@ function App() {
           } catch(e2) { console.warn('localStorage migration failed', e2); }
         }
       } catch(e) { console.warn('state load failed', e); }
-      // Load PIN
+      // Load PIN — always show PIN screen (setup if no PIN, verify if exists)
       try {
         const pin = await window._fbLoad('v2-pin');
-        if (pin?.hash) { setPinHash(pin.hash); setPhase('pin'); }
-        else setPhase('user');
-      } catch(e) { setPhase('user'); }
+        if (pin?.hash) setPinHash(pin.hash);
+        setPhase('pin');
+      } catch(e) { setPhase('pin'); }
     }).catch(() => setPhase('user'));
   }, []);
 
