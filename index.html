@@ -223,8 +223,10 @@ window.MM_DATA = {
 
   let state = makeSeed();
   let saveTimer = null;
+  let _loaded = false; // only persist after loadState has run
 
   function persist() {
+    if (!_loaded) return;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       if (window._fbSave) window._fbSave('v2-state', JSON.stringify(state));
@@ -323,21 +325,7 @@ window.MM_DATA = {
           if (k <= todayKey) filteredMonths[k] = v;
         });
 
-        // Migrate from encargos → taskTemplates if needed
-        let templates = newState.taskTemplates;
-        if (!templates || templates.length === 0) {
-          const encargos = newState.encargos || seed.encargos;
-          let tid = 1;
-          templates = encargos.filter(e => e.active).map(e => ({
-            id: 'tm' + (tid++),
-            label: e.name,
-            amount: e.amount,
-            encargoId: e.id,
-            when: e.day ? `dia ${e.day}` : null,
-            freq: e.freq,
-            month: e.month || null,
-          }));
-        }
+        const templates = newState.taskTemplates || [];
 
         state = { ...seed, ...newState,
           currentMonth: cm,
@@ -354,6 +342,7 @@ window.MM_DATA = {
           state.months[todayKey] = { tasks:[], activity:[], investimentosMonth:[], josi:{rate:7.5,workerName:'Josi',sessions:[]}, variaveis:{} };
         }
       } catch(e) { state = makeSeed(); }
+      _loaded = true;
       notify();
     },
 
