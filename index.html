@@ -162,40 +162,14 @@ window.MM_DATA = {
 (function() {
   const listeners = new Set();
 
-  const SEED_TASKS = [
-    { id:1,  label:'Nocas → Conta Conjunta',               amount:1050,   type:'Manual', done:false, who:null },
-    { id:2,  label:'Conta Conjunta → Investimentos',       amount:150,    type:'Manual', done:false, who:null },
-    { id:3,  label:'AJC Nocas → Escola Tomás',             amount:552,    type:'Manual', done:false, who:null },
-    { id:4,  label:'Tomás → XTB ETF MSCI World',          amount:100,    type:'Manual', done:false, who:null },
-    { id:5,  label:'Conta Conjunta → Conta Pessoal Nocas', amount:488,    type:'Manual', done:false, who:null },
-    { id:6,  label:'JB1 → Conta Conjunta',                 amount:250,    type:'Auto',   done:true,  when:'dia 1',  who:'João' },
-    { id:7,  label:'Conta Conjunta → Nocas (renda)',       amount:750,    type:'Auto',   done:true,  when:'dia 2',  who:'Nocas' },
-    { id:8,  label:'Natação SCP → Poup. Conjunta',         amount:35,     type:'Auto',   done:true,  when:'dia 5',  who:'Nocas' },
-    { id:9,  label:'Conta Conjunta → Pai',                 amount:750,    type:'Auto',   done:false, when:'dia 3',  who:null },
-    { id:10, label:'Cofre Férias → Conta Conjunta',        amount:200,    type:'Auto',   done:true,  when:'dia 4',  who:'João' },
-    { id:11, label:'Conta Conjunta → Cofre Casa',          amount:300,    type:'Manual', done:true,  when:null,     who:'Nocas' },
-    { id:12, label:'Conta Conjunta → Cofre Carro',         amount:100,    type:'Manual', done:true,  when:null,     who:'João' },
-    { id:13, label:'Conta Conjunta → IRS',                 amount:220,    type:'Auto',   done:true,  when:'dia 7',  who:'João' },
-    { id:14, label:'Conta Conjunta → Seguros',             amount:88,     type:'Auto',   done:true,  when:'dia 10', who:'João' },
-    { id:15, label:'Despesas Tomás (creche extra)',         amount:145,    type:'Manual', done:true,  when:null,     who:'Nocas' },
-    { id:16, label:'Conta Conjunta → Investimentos Tomás', amount:50,     type:'Auto',   done:false, when:'dia 28', who:null },
-    { id:17, label:'Pagamento Josi (mensal)',               amount:138.75, type:'Manual', done:false, who:null },
-    { id:18, label:'Seguro KIA (anual, este mês)',          amount:217.46, type:'Manual', done:false, badge:'Anual' },
-  ];
-
-  const SEED_ACTIVITY = [
-    { who:'Nocas', what:'marcou "JB1 → Poupança Conjunta"', amt:'+400€', when:'há 10 min', kind:'task' },
-    { who:'João',  what:'marcou "JB1 → Conta Conjunta"',    amt:'+250€', when:'há 2h',     kind:'task' },
-    { who:'João',  what:'registou investimento S&P 500',     amt:'100€',  when:'ontem',     kind:'invest' },
-    { who:'Nocas', what:'editou encargo "Alimentação"',      amt:'350€',  when:'ontem',     kind:'edit' },
-    { who:'João',  what:'registou 4h da Josi',               amt:'30€',   when:'há 3 dias', kind:'josi' },
-    { who:'Nocas', what:'registou gasto Eletricidade',       amt:'78€',   when:'há 4 dias', kind:'spend' },
-    { who:'João',  what:'marcou "Conta Conjunta → Pai"',     amt:'+750€', when:'há 5 dias', kind:'task' },
-  ];
 
   function makeSeed() {
+    const now = new Date();
+    const curIdx = now.getMonth();   // 0-11
+    const curYear = now.getFullYear();
+    const curKey = `${curYear}-${String(curIdx+1).padStart(2,'0')}`;
     return {
-      currentMonth: { idx:10, year:2026 },
+      currentMonth: { idx:curIdx, year:curYear },
       banks: [
         { id:'activo', name:'ActivoBank' },
         { id:'tr',     name:'Trade Republic' },
@@ -203,60 +177,10 @@ window.MM_DATA = {
         { id:'novo',   name:'NovoBanco' },
       ],
       months: {
-        '2026-05': {
+        [curKey]: {
           tasks:[], activity:[], investimentosMonth:[],
-          josi:{ rate:7.5, workerName:'Josi', sessions:[], _historySummary:{ h:15, total:112.5 } },
-          variaveis:{ 'Eletricidade':[{date:'2026-05-15',amount:78}], 'Gás':[{date:'2026-05-20',amount:32}], 'Água':[{date:'2026-05-10',amount:26}] },
-          _spendSummary:{ fixos:2400, var:320, josi:112, anuais:0 },
-        },
-        '2026-06': {
-          tasks:[], activity:[], investimentosMonth:[],
-          josi:{ rate:7.5, workerName:'Josi', sessions:[], _historySummary:{ h:18, total:135 } },
-          variaveis:{ 'Eletricidade':[{date:'2026-06-14',amount:82}], 'Gás':[{date:'2026-06-22',amount:28}] },
-          _spendSummary:{ fixos:2400, var:380, josi:135, anuais:0 },
-        },
-        '2026-07': {
-          tasks:[], activity:[], investimentosMonth:[],
-          josi:{ rate:7.5, workerName:'Josi', sessions:[], _historySummary:{ h:19, total:142.5 } },
-          variaveis:{ 'Eletricidade':[{date:'2026-07-15',amount:91}], 'Gás':[{date:'2026-07-21',amount:25}], 'Água':[{date:'2026-07-12',amount:31}] },
-          _spendSummary:{ fixos:2400, var:410, josi:142, anuais:145 },
-        },
-        '2026-08': {
-          tasks:[], activity:[], investimentosMonth:[],
-          josi:{ rate:7.5, workerName:'Josi', sessions:[], _historySummary:{ h:16, total:120 } },
-          variaveis:{ 'Eletricidade':[{date:'2026-08-14',amount:88}], 'Gás':[{date:'2026-08-19',amount:22}] },
-          _spendSummary:{ fixos:2400, var:290, josi:120, anuais:0 },
-        },
-        '2026-09': {
-          tasks:[], activity:[], investimentosMonth:[],
-          josi:{ rate:7.5, workerName:'Josi', sessions:[], _historySummary:{ h:18.4, total:138 } },
-          variaveis:{ 'Eletricidade':[{date:'2026-09-15',amount:79}], 'Gás':[{date:'2026-09-20',amount:30}], 'Água':[{date:'2026-09-11',amount:28}] },
-          _spendSummary:{ fixos:2400, var:340, josi:138, anuais:217 },
-        },
-        '2026-10': {
-          tasks:[], activity:[], investimentosMonth:[],
-          josi:{ rate:7.5, workerName:'Josi', sessions:[], _historySummary:{ h:18.4, total:138 } },
-          variaveis:{ 'Eletricidade':[{date:'2026-10-14',amount:76}], 'Gás':[{date:'2026-10-21',amount:38}] },
-          _spendSummary:{ fixos:2400, var:366, josi:138, anuais:0 },
-        },
-        '2026-11': {
-          tasks: SEED_TASKS,
-          activity: SEED_ACTIVITY,
-          investimentosMonth: [],
-          josi: {
-            rate:7.5, workerName:'Josi',
-            sessions:[
-              { id:1, date:'2026-11-04', hours:4,   obs:'' },
-              { id:2, date:'2026-11-11', hours:4,   obs:'' },
-              { id:3, date:'2026-11-18', hours:4.5, obs:'' },
-              { id:4, date:'2026-11-25', hours:6,   obs:'' },
-            ],
-          },
-          variaveis:{
-            'Eletricidade':[{date:'2026-11-12',amount:89}],
-            'Gás':[{date:'2026-11-15',amount:45}],
-            'Água':[{date:'2026-11-09',amount:24}],
-          },
+          josi:{ rate:7.5, workerName:'Josi', sessions:[] },
+          variaveis:{},
         },
       },
       cofres: [
@@ -382,13 +306,26 @@ window.MM_DATA = {
     loadState(newState) {
       try {
         const seed = makeSeed();
+        const now = new Date();
+        const todayIdx = now.getMonth(), todayYear = now.getFullYear();
+        // Correct currentMonth if it's in the future relative to today
+        let cm = newState.currentMonth || seed.currentMonth;
+        if (cm.year > todayYear || (cm.year === todayYear && cm.idx > todayIdx)) {
+          cm = { idx: todayIdx, year: todayYear };
+        }
         state = { ...seed, ...newState,
+          currentMonth: cm,
           months: { ...seed.months, ...(newState.months||{}) },
           encargos: newState.encargos||seed.encargos,
           cofres: newState.cofres||seed.cofres,
           investimentos: newState.investimentos||seed.investimentos,
           banks: newState.banks||seed.banks,
         };
+        // Ensure the corrected month exists
+        const key = `${cm.year}-${String(cm.idx+1).padStart(2,'0')}`;
+        if (!state.months[key]) {
+          state.months[key] = { tasks:[], activity:[], investimentosMonth:[], josi:{rate:7.5,workerName:'Josi',sessions:[]}, variaveis:{} };
+        }
       } catch(e) { state = makeSeed(); }
       notify();
     },
