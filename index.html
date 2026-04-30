@@ -3311,10 +3311,29 @@ function App() {
 
   useEA(() => {
     window._fbReady.then(async () => {
-      // Load persisted state
+      // Load persisted state from Firebase
       try {
-        const data = await window._fbLoad('v2-state');
-        if (data && data.months) window.MM_STORE.actions.loadState(data);
+        const raw = await window._fbLoad('v2-state');
+        if (raw) {
+          // raw may be a JSON string or already an object
+          const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (data && data.months) {
+            window.MM_STORE.actions.loadState(data);
+          }
+        } else {
+          // Firebase has nothing — try to migrate from old localStorage (v1 dark theme)
+          try {
+            const ls = localStorage.getItem('monimoni:v1');
+            if (ls) {
+              const old = JSON.parse(ls);
+              if (old && old.months) {
+                window.MM_STORE.actions.loadState(old);
+                // immediately persist to Firebase so migration only runs once
+                if (window._fbSave) window._fbSave('v2-state', ls);
+              }
+            }
+          } catch(e2) { console.warn('localStorage migration failed', e2); }
+        }
       } catch(e) { console.warn('state load failed', e); }
       // Load PIN
       try {
