@@ -1827,9 +1827,6 @@ window.TaskDrawer = function TaskDrawer({ open, onClose, taskId }) {
         </>
       ) : (
         <>
-          <window.DangerButton onClick={() => {
-            if (confirm(`Eliminar "${task.label}" apenas neste mês?`)) { A.deleteTask(taskId); onClose(); }
-          }}>Eliminar mês</window.DangerButton>
           <button onClick={() => setEditing(true)} style={s.btnGhost()}>Editar</button>
           {task.skipped ? (
             <button onClick={() => { A.unskipTask(taskId); onClose(); }} style={s.btnPrimary()}>Retomar</button>
@@ -2228,7 +2225,7 @@ window.ScreenHome = function ScreenHome({ goto }) {
                       <span style={{ fontWeight:700 }}>{a.who}</span>
                       <span style={{ color:p.textDim, fontWeight:500 }}> {a.what}</span>
                     </div>
-                    <div style={{ fontSize:11, color:p.textMute, marginTop:2, fontWeight:500 }}>{fmtTs(a.ts || a.when)}</div>
+                    <div style={{ fontSize:11, color:p.textMute, marginTop:2, fontWeight:500 }}>{fmtTs(a.ts)}</div>
                   </div>
                   {a.amt && <div style={{ ...s.number(13,p.textDim), flexShrink:0 }}>{a.amt}</div>}
                 </div>
