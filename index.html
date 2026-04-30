@@ -297,7 +297,7 @@ window.MM_DATA = {
         ...s.months,
         [key]: {
           ...s.months[key],
-          activity: [{ who:s.user, what:text, amt, when:'agora', kind }, ...(s.months[key]?.activity||[])].slice(0,50),
+          activity: [{ who:s.user, what:text, amt, ts: Date.now(), kind }, ...(s.months[key]?.activity||[])].slice(0,50),
         },
       },
     }));
@@ -1959,6 +1959,20 @@ window.ScreenHome = function ScreenHome({ goto }) {
     if (k==='spend')  return { bg:p.expenseSoft, c:p.expense, sym:'€' };
     return { bg:p.surface3, c:p.textDim, sym:'·' };
   };
+  const fmtTs = ts => {
+    if (!ts) return '';
+    const d = new Date(ts), now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffH   = Math.floor(diffMs / 3600000);
+    if (diffMin < 1)  return 'agora';
+    if (diffMin < 60) return `há ${diffMin} min`;
+    if (diffH < 24)   return `hoje às ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate()-1);
+    if (d.toDateString() === yesterday.toDateString())
+      return `ontem às ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `${d.getDate()}/${d.getMonth()+1} às ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
 
   return (
     <div>
@@ -2003,7 +2017,7 @@ window.ScreenHome = function ScreenHome({ goto }) {
           <div style={s.kicker()}>A chegar</div>
           {D.bigUpcoming.amount > 0 ? (
             <>
-              <div style={{ fontSize:12, color:p.textDim, marginBottom:6, fontWeight:500 }}>Anual · {D.bigUpcoming.when}</div>
+              <div style={{ fontSize:12, color:p.textDim, marginBottom:6, fontWeight:500 }}>Anual · {D.bigUpcoming.month}</div>
               <div style={s.heading(19)}>{D.bigUpcoming.name}</div>
               <div style={{ ...s.number(28,p.amber), marginTop:8 }}>{fmtEurFull(D.bigUpcoming.amount)}</div>
             </>
@@ -2173,7 +2187,7 @@ window.ScreenHome = function ScreenHome({ goto }) {
                       <span style={{ fontWeight:700 }}>{a.who}</span>
                       <span style={{ color:p.textDim, fontWeight:500 }}> {a.what}</span>
                     </div>
-                    <div style={{ fontSize:11, color:p.textMute, marginTop:2, fontWeight:500 }}>{a.when}</div>
+                    <div style={{ fontSize:11, color:p.textMute, marginTop:2, fontWeight:500 }}>{fmtTs(a.ts || a.when)}</div>
                   </div>
                   {a.amt && <div style={{ ...s.number(13,p.textDim), flexShrink:0 }}>{a.amt}</div>}
                 </div>
