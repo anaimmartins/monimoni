@@ -3547,8 +3547,8 @@ function AppShell() {
   const [tab, setTab] = useSA('home');
   const [, force] = useSA(0);
   useEA(() => {
-    syncMMData();
-    return window.MM_STORE.subscribe(() => { syncMMData(); force(x => x+1); });
+    // syncMMData já é chamado pelo subscriber global; aqui só forçamos re-render
+    return window.MM_STORE.subscribe(() => force(x => x+1));
   }, []);
   const goto = t => { setTab(t); window.scrollTo({ top:0, behavior:'instant' }); };
   const screens = {
@@ -3627,6 +3627,9 @@ function App() {
 }
 
 // ── Wire toasts + initial sync + render ──────────────────────────────────────
+// Subscriber global: mantém MM_DATA sempre actualizado quando o store muda,
+// mesmo antes de AppShell estar montado (ex: quando loadState corre após Firebase carregar)
+window.MM_STORE.subscribe(syncMMData);
 syncMMData();
 
 (function wireToasts() {
