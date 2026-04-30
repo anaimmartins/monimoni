@@ -439,6 +439,18 @@ window.MM_DATA = {
         tasks: s.months[key].tasks.filter(x => x.id!==id) }}}));
       if (t) logActivity(`eliminou tarefa "${t.label}"`, 'task', '');
     },
+    skipTask(id, reason='') {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      const t = state.months[key]?.tasks.find(x => x.id===id);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.map(x => x.id===id ? { ...x, skipped:true, skipReason:reason, done:false } : x) }}}));
+      if (t) logActivity(`ignorou "${t.label}"${reason ? ` · ${reason}` : ''}`, 'task', '');
+    },
+    unskipTask(id) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.map(x => x.id===id ? { ...x, skipped:false, skipReason:'' } : x) }}}));
+    },
 
     addJosiSession(date, hours, obs='') {
       const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
@@ -1788,8 +1800,10 @@ window.TaskDrawer = function TaskDrawer({ open, onClose, taskId }) {
   const [editing, setEditing] = useSD(false);
   const [editLabel, setEditLabel] = useSD('');
   const [editAmount, setEditAmount] = useSD('');
+  const [skipping, setSkipping] = useSD(false);
+  const [skipReason, setSkipReason] = useSD('');
   useED(() => {
-    if (task) { setEditLabel(task.label); setEditAmount(String(task.amount)); setEditing(false); }
+    if (task) { setEditLabel(task.label); setEditAmount(String(task.amount)); setEditing(false); setSkipping(false); setSkipReason(''); }
   }, [open, taskId]);
   if (!task) return null;
   const enc = task.encargoId ? D.encargos.find(e => e.id===task.encargoId) : null;
@@ -1806,27 +1820,50 @@ window.TaskDrawer = function TaskDrawer({ open, onClose, taskId }) {
             setEditing(false);
           }} style={s.btnPrimary()}>Guardar</button>
         </>
+      ) : skipping ? (
+        <>
+          <button onClick={() => setSkipping(false)} style={s.btnGhost()}>Cancelar</button>
+          <button onClick={() => { A.skipTask(taskId, skipReason.trim()); setSkipping(false); onClose(); }} style={{ ...s.btnPrimary(), background:p.amber, borderColor:p.amber }}>Confirmar</button>
+        </>
       ) : (
         <>
           <window.DangerButton onClick={() => {
-            if (confirm(`Eliminar "${task.label}"?`)) { A.deleteTask(taskId); onClose(); }
-          }}>Eliminar</window.DangerButton>
+            if (confirm(`Eliminar "${task.label}" apenas neste mês?`)) { A.deleteTask(taskId); onClose(); }
+          }}>Eliminar mês</window.DangerButton>
           <button onClick={() => setEditing(true)} style={s.btnGhost()}>Editar</button>
-          <button onClick={() => A.toggleTask(taskId)} style={s.btnPrimary()}>
-            {task.done ? 'Desmarcar' : 'Marcar feita'}
-          </button>
+          {task.skipped ? (
+            <button onClick={() => { A.unskipTask(taskId); onClose(); }} style={s.btnPrimary()}>Retomar</button>
+          ) : (
+            <>
+              <button onClick={() => setSkipping(true)} style={{ ...s.btnGhost(), color:p.amber, borderColor:p.amber }}>Ignorar</button>
+              <button onClick={() => A.toggleTask(taskId)} style={s.btnPrimary()}>
+                {task.done ? 'Desmarcar' : 'Marcar feita'}
+              </button>
+            </>
+          )}
         </>
       )}>
       {!editing ? (
         <>
+          {skipping && (
+            <div style={{ padding:16, borderRadius:14, background:p.amberSoft, border:`1px solid ${p.amber}`, marginBottom:12 }}>
+              <div style={{ fontSize:12, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:p.amber, marginBottom:8 }}>Ignorar este mês</div>
+              <window.TextInput value={skipReason} onChange={setSkipReason} placeholder="Motivo (opcional)..." />
+            </div>
+          )}
           <div style={{ padding:20, borderRadius:14,
-                        background:task.done?p.greenSoft:p.surface2,
-                        border:`1px solid ${task.done?p.green:p.border}` }}>
+                        background: task.skipped ? p.amberSoft : task.done ? p.greenSoft : p.surface2,
+                        border:`1px solid ${task.skipped ? p.amber : task.done ? p.green : p.border}` }}>
             <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em',
-                          color:task.done?p.green:p.textDim }}>{task.done ? 'Feita' : 'Pendente'}</div>
+                          color: task.skipped ? p.amber : task.done ? p.green : p.textDim }}>
+              {task.skipped ? 'Ignorada' : task.done ? 'Feita' : 'Pendente'}
+            </div>
             <div style={{ ...s.number(32,p.text), marginTop:6 }}>{window.fmtEurFull(task.amount)}</div>
             {task.done && task.who && (
               <div style={{ fontSize:13, color:p.textDim, marginTop:6, fontWeight:600 }}>Marcada por {task.who}</div>
+            )}
+            {task.skipped && task.skipReason && (
+              <div style={{ fontSize:13, color:p.textDim, marginTop:6, fontWeight:600 }}>Motivo: {task.skipReason}</div>
             )}
           </div>
           <window.SectionLabel>Detalhes</window.SectionLabel>
@@ -1939,7 +1976,7 @@ window.ScreenHome = function ScreenHome({ goto }) {
   const pct = D.tasksTotal > 0 ? Math.round((D.tasksDone/D.tasksTotal)*100) : 0;
   const allDone = D.tasksTotal > 0 && D.tasksDone === D.tasksTotal;
   const filtered = D.tasks.filter(task => {
-    if (filter==='pending') return !task.done;
+    if (filter==='pending') return !task.done && !task.skipped;
     if (filter==='auto')    return task.type==='Auto';
     if (filter==='manual')  return task.type==='Manual';
     return true;
@@ -1961,7 +1998,9 @@ window.ScreenHome = function ScreenHome({ goto }) {
   };
   const fmtTs = ts => {
     if (!ts) return '';
-    const d = new Date(ts), now = new Date();
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return typeof ts === 'string' ? ts : '';
+    const now = new Date();
     const diffMs = now - d;
     const diffMin = Math.floor(diffMs / 60000);
     const diffH   = Math.floor(diffMs / 3600000);
@@ -2135,19 +2174,21 @@ window.ScreenHome = function ScreenHome({ goto }) {
               return (
                 <div key={task.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 0',
                                             borderBottom:i<filtered.length-1?`1px solid ${p.border}`:'none',
-                                            opacity:task.done?0.5:1 }}>
-                  <div onClick={() => window.MM_STORE.actions.toggleTask(task.id)} style={{
+                                            opacity:task.done?0.5:task.skipped?0.65:1 }}>
+                  <div onClick={() => !task.skipped && window.MM_STORE.actions.toggleTask(task.id)} style={{
                     width:22, height:22, borderRadius:'50%',
-                    border:`2px solid ${task.done?p.green:(od.isOverdue?p.expense:p.textMute)}`,
-                    background:task.done?p.green:'transparent', color:p.onGreen,
+                    border:`2px solid ${task.skipped?p.amber:task.done?p.green:(od.isOverdue?p.expense:p.textMute)}`,
+                    background:task.skipped?p.amber:task.done?p.green:'transparent', color:p.onGreen,
                     fontSize:12, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
-                    flexShrink:0, cursor:'pointer',
-                  }}>{task.done?'✓':''}</div>
+                    flexShrink:0, cursor:task.skipped?'default':'pointer',
+                  }}>{task.skipped?'–':task.done?'✓':''}</div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:14, fontWeight:600, letterSpacing:f.bodyTrack,
-                                  textDecoration:task.done?'line-through':'none',
-                                  color:task.done?p.textMute:(od.isOverdue?p.expense:p.text) }}>{task.label}</div>
-                    {od.isOverdue ? (
+                                  textDecoration:(task.done||task.skipped)?'line-through':'none',
+                                  color:task.skipped?p.amber:task.done?p.textMute:(od.isOverdue?p.expense:p.text) }}>{task.label}</div>
+                    {task.skipped ? (
+                      <div style={{ fontSize:11, color:p.amber, marginTop:2, fontWeight:600 }}>Ignorada{task.skipReason ? ` · ${task.skipReason}` : ''}</div>
+                    ) : od.isOverdue ? (
                       <div style={{ fontSize:11, color:p.expense, marginTop:2, fontWeight:700 }}>Atrasada {od.daysLate} {od.daysLate===1?'dia':'dias'} · era dia {od.dueDay}</div>
                     ) : task.when && (
                       <div style={{ fontSize:11, color:p.textMute, marginTop:2, fontWeight:500 }}>Débito {task.when}</div>
@@ -2230,17 +2271,19 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
   const [detailId, setDetailId] = useST(null);
 
   const templates = state.taskTemplates || [];
-  const overdueTasks = D.tasks.filter(t => !t.done && window.taskOverdueInfo(t).isOverdue);
+  const overdueTasks = D.tasks.filter(t => !t.done && !t.skipped && window.taskOverdueInfo(t).isOverdue);
+  const skippedTasks = D.tasks.filter(t => t.skipped);
   const filtered = D.tasks.filter(t => {
-    if (filter==='pending') return !t.done;
+    if (filter==='pending') return !t.done && !t.skipped;
     if (filter==='done')    return t.done;
+    if (filter==='ignoradas') return t.skipped;
     if (filter==='recorrente') return t.type==='Auto';
     if (filter==='pontual')    return t.type==='Manual';
-    if (filter==='overdue') return !t.done && window.taskOverdueInfo(t).isOverdue;
+    if (filter==='overdue') return !t.done && !t.skipped && window.taskOverdueInfo(t).isOverdue;
     return true;
   });
 
-  const totalPending = D.tasks.filter(t => !t.done).reduce((sum,t) => sum+t.amount, 0);
+  const totalPending = D.tasks.filter(t => !t.done && !t.skipped).reduce((sum,t) => sum+t.amount, 0);
   const totalDone    = D.tasks.filter(t => t.done).reduce((sum,t) => sum+t.amount, 0);
   const totalAll     = D.tasks.reduce((sum,t) => sum+t.amount, 0);
   const totalOverdue = overdueTasks.reduce((sum,t) => sum+t.amount, 0);
@@ -2248,8 +2291,15 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
   const pct = D.tasksTotal>0 ? Math.round((D.tasksDone/D.tasksTotal)*100) : 0;
 
   const groups = group==='status'
-    ? [{ id:'pending', title:'Por fazer', items:filtered.filter(t=>!t.done) }, { id:'done', title:'Feito', items:filtered.filter(t=>t.done) }]
-    : [{ id:'pontual', title:'Pontuais', items:filtered.filter(t=>t.type==='Manual') }, { id:'recorrente', title:'Recorrentes', items:filtered.filter(t=>t.type==='Auto') }];
+    ? [
+        { id:'pending',   title:'Por fazer', items:filtered.filter(t=>!t.done&&!t.skipped) },
+        { id:'done',      title:'Feito',     items:filtered.filter(t=>t.done) },
+        { id:'ignoradas', title:'Ignoradas', items:filtered.filter(t=>t.skipped) },
+      ]
+    : [
+        { id:'pontual',    title:'Pontuais',    items:filtered.filter(t=>t.type==='Manual') },
+        { id:'recorrente', title:'Recorrentes', items:filtered.filter(t=>t.type==='Auto') },
+      ];
 
   return (
     <div>
@@ -2308,15 +2358,17 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[
             { id:'all',        label:'Todas',       count:D.tasks.length },
-            { id:'pending',    label:'Por fazer',   count:D.tasks.filter(t=>!t.done).length },
+            { id:'pending',    label:'Por fazer',   count:D.tasks.filter(t=>!t.done&&!t.skipped).length },
             ...(overdueTasks.length>0 ? [{ id:'overdue', label:'Atrasadas', count:overdueTasks.length, danger:true }] : []),
             { id:'done',       label:'Feitas',      count:D.tasks.filter(t=>t.done).length },
+            ...(skippedTasks.length>0 ? [{ id:'ignoradas', label:'Ignoradas', count:skippedTasks.length, amber:true }] : []),
             { id:'pontual',    label:'Pontuais',    count:D.tasks.filter(t=>t.type==='Manual').length },
             { id:'recorrente', label:'Recorrentes', count:D.tasks.filter(t=>t.type==='Auto').length },
           ].map(fl => (
             <button key={fl.id} onClick={() => setFilter(fl.id)} style={{
               ...s.pill(filter===fl.id), padding:'7px 13px',
               ...(fl.danger&&filter!==fl.id ? { color:p.expense, borderColor:'rgba(176,48,48,0.3)' } : {}),
+              ...(fl.amber&&filter!==fl.id ? { color:p.amber, borderColor:'rgba(180,120,0,0.3)' } : {}),
             }}>
               {fl.label}<span style={{ marginLeft:6, opacity:0.7, fontSize:11 }}>{fl.count}</span>
             </button>
@@ -2383,22 +2435,24 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
               return (
                 <div key={task.id} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 0',
                                             borderBottom:i<grp.items.length-1?`1px solid ${p.border}`:'none',
-                                            opacity:task.done?0.55:1 }}>
-                  <div onClick={() => window.MM_STORE.actions.toggleTask(task.id)} style={{
+                                            opacity:task.done?0.55:task.skipped?0.65:1 }}>
+                  <div onClick={() => !task.skipped && window.MM_STORE.actions.toggleTask(task.id)} style={{
                     width:22, height:22, borderRadius:'50%',
-                    border:`2px solid ${task.done?p.green:(od.isOverdue?p.expense:p.textMute)}`,
-                    background:task.done?p.green:'transparent', color:p.onGreen,
+                    border:`2px solid ${task.skipped?p.amber:task.done?p.green:(od.isOverdue?p.expense:p.textMute)}`,
+                    background:task.skipped?p.amber:task.done?p.green:'transparent', color:p.onGreen,
                     fontSize:12, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
-                    flexShrink:0, cursor:'pointer',
-                  }}>{task.done?'✓':''}</div>
+                    flexShrink:0, cursor:task.skipped?'default':'pointer',
+                  }}>{task.skipped?'–':task.done?'✓':''}</div>
                   <div style={{ flex:1, minWidth:0, cursor:'pointer' }} onClick={() => setDetailId(task.id)}>
                     <div style={{ fontSize:14, fontWeight:600, letterSpacing:f.bodyTrack,
-                                  textDecoration:task.done?'line-through':'none',
-                                  color:task.done?p.textMute:(od.isOverdue?p.expense:p.text) }}>{task.label}</div>
-                    <div style={{ fontSize:11, color:od.isOverdue?p.expense:p.textMute, marginTop:3, fontWeight:od.isOverdue?700:500 }}>
-                      {od.isOverdue
-                        ? `Atrasada ${od.daysLate} ${od.daysLate===1?'dia':'dias'} · era dia ${od.dueDay}`
-                        : <>{task.when&&<span>Débito {task.when}</span>}{task.who&&<span>{task.when?' · ':''}Marcada por {task.who}</span>}{!task.when&&!task.who&&<span>Sem data fixa</span>}</>}
+                                  textDecoration:(task.done||task.skipped)?'line-through':'none',
+                                  color:task.skipped?p.amber:task.done?p.textMute:(od.isOverdue?p.expense:p.text) }}>{task.label}</div>
+                    <div style={{ fontSize:11, color:task.skipped?p.amber:od.isOverdue?p.expense:p.textMute, marginTop:3, fontWeight:task.skipped||od.isOverdue?700:500 }}>
+                      {task.skipped
+                        ? `Ignorada${task.skipReason ? ` · ${task.skipReason}` : ''}`
+                        : od.isOverdue
+                          ? `Atrasada ${od.daysLate} ${od.daysLate===1?'dia':'dias'} · era dia ${od.dueDay}`
+                          : <>{task.when&&<span>Débito {task.when}</span>}{task.who&&<span>{task.when?' · ':''}Marcada por {task.who}</span>}{!task.when&&!task.who&&<span>Sem data fixa</span>}</>}
                     </div>
                   </div>
                   {task.badge && <div style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.08em', padding:'3px 9px', borderRadius:6, fontWeight:700, background:p.purpleSoft, color:p.purple }}>{task.badge}</div>}
@@ -3379,7 +3433,7 @@ function syncMMData() {
   const tasksDone = tasks.filter(t => t.done).length;
   const manual = tasks.filter(t => t.type==='Manual');
   const auto   = tasks.filter(t => t.type==='Auto');
-  const pending = tasks.filter(t => !t.done).reduce((sum,t) => sum+t.amount, 0);
+  const pending = tasks.filter(t => !t.done && !t.skipped).reduce((sum,t) => sum+t.amount, 0);
   const spendHistory = computeSpendHistory(s);
   const josiHistory  = computeJosiHistory(s);
   const allVars      = computeAllVariables(s);
@@ -3398,7 +3452,7 @@ function syncMMData() {
     year: s.currentMonth.year,
     tasks,
     tasksDone,
-    tasksTotal: tasks.length,
+    tasksTotal: tasks.filter(t => !t.skipped).length,
     manualDone: manual.filter(t=>t.done).length,
     manualTotal: manual.length,
     autoDone: auto.filter(t=>t.done).length,
