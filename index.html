@@ -3104,36 +3104,43 @@ function syncMMData() {
 
 // ── PIN Screen ────────────────────────────────────────────────────────────────
 function PinScreen({ pinHash, onSuccess, onSetup }) {
-  const p = window.MM_PALETTE, f = window.MM_FONT, s = window.MM_STYLES;
+  const p = window.MM_PALETTE, f = window.MM_FONT;
   const isSetup = !pinHash;
-  const [phase, setPhase] = useSA(isSetup ? 'enter' : 'verify'); // enter | confirm | verify
+  const [phase, setPhase] = useSA(isSetup ? 'enter' : 'verify');
   const [pin, setPin] = useSA('');
   const [firstPin, setFirstPin] = useSA('');
   const [error, setError] = useSA('');
+  const inputRef = React.useRef(null);
 
-  const append = d => {
-    if (pin.length >= 4) return;
-    const next = pin + d;
-    setPin(next);
-    setError('');
-    if (next.length === 4) {
-      setTimeout(() => {
-        if (phase === 'verify') {
-          if (btoa(next) === pinHash) { onSuccess(); }
-          else { setError('PIN incorrecto. Tenta de novo.'); setPin(''); }
-        } else if (phase === 'enter') {
-          setFirstPin(next); setPin(''); setPhase('confirm');
-        } else if (phase === 'confirm') {
-          if (next === firstPin) { onSetup(next); }
-          else { setError('Os PINs não coincidem. Começa de novo.'); setPin(''); setFirstPin(''); setPhase('enter'); }
-        }
-      }, 120);
+  React.useEffect(() => { inputRef.current?.focus(); }, [phase]);
+
+  const submit = (value) => {
+    const next = value.trim();
+    if (next.length < 4) return;
+    if (phase === 'verify') {
+      if (btoa(next) === pinHash) { onSuccess(); }
+      else { setError('PIN incorrecto. Tenta de novo.'); setPin(''); }
+    } else if (phase === 'enter') {
+      setFirstPin(next); setPin(''); setPhase('confirm');
+    } else if (phase === 'confirm') {
+      if (next === firstPin) { onSetup(next); }
+      else { setError('Os PINs não coincidem. Começa de novo.'); setPin(''); setFirstPin(''); setPhase('enter'); }
     }
   };
-  const del = () => setPin(p2 => p2.slice(0,-1));
+
+  const handleChange = e => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setPin(val);
+    setError('');
+    if (val.length >= 4) submit(val);
+  };
+
+  const handleKey = e => {
+    if (e.key === 'Enter') submit(pin);
+  };
 
   const title = phase==='verify' ? 'Introduz o PIN' : phase==='enter' ? 'Cria um PIN' : 'Confirma o PIN';
-  const sub   = phase==='verify' ? 'Para entrar na aplicação' : phase==='enter' ? '4 dígitos para proteger o acesso' : 'Repete os mesmos 4 dígitos';
+  const sub   = phase==='verify' ? 'Para entrar na aplicação' : phase==='enter' ? '4 a 6 dígitos para proteger o acesso' : 'Repete os mesmos dígitos';
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
@@ -3144,29 +3151,31 @@ function PinScreen({ pinHash, onSuccess, onSetup }) {
           fontWeight:800, fontSize:26, letterSpacing:'-0.03em', margin:'0 auto 24px' }}>m</div>
         <div style={{ fontSize:22, fontWeight:800, letterSpacing:'-0.02em', marginBottom:6 }}>{title}</div>
         <div style={{ fontSize:13, color:p.textDim, fontWeight:500, marginBottom:32 }}>{sub}</div>
-        <div style={{ display:'flex', gap:14, justifyContent:'center', marginBottom:32 }}>
-          {[0,1,2,3].map(i => (
-            <div key={i} style={{ width:14, height:14, borderRadius:'50%',
-              background: pin.length>i ? p.text : p.surface3,
-              border: `2px solid ${pin.length>i ? p.text : p.border}`,
-              transition:'background 0.1s' }} />
-          ))}
-        </div>
-        {error && <div style={{ fontSize:12, color:p.expense, fontWeight:600, marginBottom:16 }}>{error}</div>}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
-          {[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map((d, i) => (
-            <button key={i} onClick={() => d===''?null : d==='⌫'?del():append(String(d))}
-              disabled={d===''}
-              style={{ height:64, borderRadius:14, fontSize:d==='⌫'?20:22, fontWeight:700,
-                background: d===''?'transparent' : p.surface2,
-                border: d===''?'none' : `1px solid ${p.border}`,
-                color: d===''?'transparent' : p.text,
-                cursor: d===''?'default':'pointer', fontFamily:f.family,
-                display:'flex', alignItems:'center', justifyContent:'center' }}>
-              {d}
-            </button>
-          ))}
-        </div>
+        <input
+          ref={inputRef}
+          type="password"
+          inputMode="numeric"
+          value={pin}
+          onChange={handleChange}
+          onKeyDown={handleKey}
+          placeholder="••••"
+          style={{
+            width:'100%', boxSizing:'border-box',
+            padding:'16px 20px', fontSize:28, letterSpacing:'0.3em',
+            textAlign:'center', fontFamily:f.family, fontWeight:700,
+            border:`2px solid ${error ? p.expense : p.border}`,
+            borderRadius:14, outline:'none', background:p.surface2,
+            color:p.text,
+          }}
+        />
+        {error && <div style={{ fontSize:12, color:p.expense, fontWeight:600, marginTop:12 }}>{error}</div>}
+        <button onClick={() => submit(pin)} style={{
+          marginTop:16, width:'100%', padding:'14px', fontSize:15, fontWeight:700,
+          background:p.text, color:p.bg, border:'none', borderRadius:14,
+          cursor:'pointer', fontFamily:f.family,
+        }}>
+          {phase==='verify' ? 'Entrar' : phase==='enter' ? 'Continuar' : 'Confirmar PIN'}
+        </button>
       </div>
     </div>
   );
