@@ -176,6 +176,7 @@ window.MM_DATA = {
         { id:'cgd',    name:'Caixa Geral de Depósitos' },
         { id:'novo',   name:'NovoBanco' },
       ],
+      taskTemplates: [],
       months: {
         [curKey]: {
           tasks:[], activity:[], investimentosMonth:[],
@@ -255,14 +256,14 @@ window.MM_DATA = {
   function generateTasksForMonth(s, idx, year) {
     const tasks = [];
     let id = Date.now();
-    s.encargos.forEach(e => {
-      if (!e.active) return;
-      const when = e.day ? `dia ${e.day}` : undefined;
-      if (e.freq === 'mensal') {
-        tasks.push({ id:id++, label:e.name, amount:e.amount, type:'Auto', done:false, encargoId:e.id, who:null, when });
-      } else if (e.freq === 'anual') {
-        const mIdx = MONTHS.findIndex(m => m === e.month);
-        if (mIdx === idx) tasks.push({ id:id++, label:e.name, amount:e.amount, type:'Auto', done:false, encargoId:e.id, badge:'Anual', who:null, when });
+    (s.taskTemplates || []).forEach(t => {
+      if (t.freq === 'mensal') {
+        tasks.push({ id:id++, label:t.label, amount:t.amount, type:'Auto',
+          done:false, templateId:t.id, encargoId:t.encargoId||null, when:t.when||null, who:null });
+      } else if (t.freq === 'anual') {
+        const mIdx = MONTHS.findIndex(m => m === t.month);
+        if (mIdx === idx) tasks.push({ id:id++, label:t.label, amount:t.amount, type:'Auto',
+          done:false, templateId:t.id, encargoId:t.encargoId||null, when:t.when||null, badge:'Anual', who:null });
       }
     });
     return tasks;
@@ -322,8 +323,25 @@ window.MM_DATA = {
           if (k <= todayKey) filteredMonths[k] = v;
         });
 
+        // Migrate from encargos → taskTemplates if needed
+        let templates = newState.taskTemplates;
+        if (!templates || templates.length === 0) {
+          const encargos = newState.encargos || seed.encargos;
+          let tid = 1;
+          templates = encargos.filter(e => e.active).map(e => ({
+            id: 'tm' + (tid++),
+            label: e.name,
+            amount: e.amount,
+            encargoId: e.id,
+            when: e.day ? `dia ${e.day}` : null,
+            freq: e.freq,
+            month: e.month || null,
+          }));
+        }
+
         state = { ...seed, ...newState,
           currentMonth: cm,
+          taskTemplates: templates,
           months: { ...seed.months, ...filteredMonths },
           encargos: newState.encargos||seed.encargos,
           cofres: newState.cofres||seed.cofres,
@@ -362,11 +380,52 @@ window.MM_DATA = {
         tasks: s.months[key].tasks.map(t => t.id===id ? { ...t, done:newDone, who:newDone?s.user:null } : t) }}}));
       logActivity(newDone?`marcou "${task.label}"`:`desmarcou "${task.label}"`, 'task', `${newDone?'+':'−'}${Math.round(task.amount)}€`);
     },
-    addTask(label, amount, type='Manual') {
+    addTask(label, amount, opts={}) {
+      // opts: { recurring, encargoId, when, freq, month }
       const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
-      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
-        tasks: [...(s.months[key]?.tasks||[]), { id:Date.now(), label, amount, type, done:false, who:null }] }}}));
+      const tid = opts.recurring ? 'tm' + Date.now() : null;
+      const task = { id:Date.now(), label, amount, type: opts.recurring ? 'Auto' : 'Manual',
+        done:false, who:null, templateId:tid, encargoId:opts.encargoId||null, when:opts.when||null };
+      if (opts.recurring) {
+        const tmpl = { id:tid, label, amount, encargoId:opts.encargoId||null,
+          when:opts.when||null, freq:opts.freq||'mensal', month:opts.month||null };
+        set(s => ({ ...s,
+          taskTemplates: [...(s.taskTemplates||[]), tmpl],
+          months: { ...s.months, [key]: { ...s.months[key],
+            tasks: [...(s.months[key]?.tasks||[]), task] }},
+        }));
+      } else {
+        set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+          tasks: [...(s.months[key]?.tasks||[]), task] }}}));
+      }
       logActivity(`adicionou tarefa "${label}"`, 'task', `${Math.round(amount)}€`);
+    },
+    addTemplate(tmpl) {
+      const tid = 'tm' + Date.now();
+      const newTmpl = { ...tmpl, id: tid };
+      set(s => ({ ...s, taskTemplates: [...(s.taskTemplates||[]), newTmpl] }));
+      // Also add to current month if mensal, or if anual and this is the right month
+      const { idx, year } = state.currentMonth;
+      const key = monthKey(idx, year);
+      const shouldAdd = newTmpl.freq === 'mensal' ||
+        (newTmpl.freq === 'anual' && MONTHS.findIndex(m => m === newTmpl.month) === idx);
+      if (shouldAdd) {
+        const task = { id:Date.now(), label:newTmpl.label, amount:newTmpl.amount,
+          type:'Auto', done:false, templateId:tid, encargoId:newTmpl.encargoId||null,
+          when:newTmpl.when||null, who:null,
+          ...(newTmpl.freq==='anual' ? { badge:'Anual' } : {}) };
+        set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+          tasks: [...(s.months[key]?.tasks||[]), task] }}}));
+      }
+      logActivity(`adicionou recorrente "${newTmpl.label}"`, 'task', `${Math.round(newTmpl.amount)}€`);
+    },
+    updateTemplate(id, patch) {
+      set(s => ({ ...s, taskTemplates: s.taskTemplates.map(t => t.id===id ? { ...t, ...patch } : t) }));
+    },
+    deleteTemplate(id) {
+      const t = state.taskTemplates.find(x => x.id===id);
+      set(s => ({ ...s, taskTemplates: s.taskTemplates.filter(x => x.id!==id) }));
+      if (t) logActivity(`removeu recorrente "${t.label}"`, 'task', '');
     },
     updateTask(id, patch) {
       const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
@@ -495,7 +554,7 @@ window.MM_DATA = {
     },
 
     addEncargo(encargo) {
-      const id = 'e'+Date.now();
+      const id = encargo.id || ('e'+Date.now());
       set(s => ({ ...s, encargos: [...s.encargos, { ...encargo, id, active:true }] }));
       logActivity(`adicionou encargo "${encargo.name}"`, 'edit', `${Math.round(encargo.amount)}€`);
     },
@@ -793,26 +852,260 @@ window.TextInput = function TextInput({ value, onChange, placeholder, prefix, ty
   );
 };
 
-window.NewTaskModal = function NewTaskModal({ open, onClose, onCreate }) {
-  const s = window.MM_STYLES;
+window.TaskTemplatesModal = function TaskTemplatesModal({ open, onClose, templates=[], encargos=[] }) {
+  const s = window.MM_STYLES, p = window.MM_PALETTE, f = window.MM_FONT;
+  const A = window.MM_STORE.actions;
+  const [editId, setEditId] = useSM(null);
+  const [editLabel, setEditLabel] = useSM('');
+  const [editAmount, setEditAmount] = useSM('');
+  const [editWhen, setEditWhen] = useSM('');
+  const [editEncargoId, setEditEncargoId] = useSM('');
+  const [editFreq, setEditFreq] = useSM('mensal');
+  const [editMonth, setEditMonth] = useSM('');
+  const [showAdd, setShowAdd] = useSM(false);
+  const MONTHS = window.MM_STORE.helpers.MONTHS;
+
+  const startEdit = (t) => {
+    setEditId(t.id); setEditLabel(t.label); setEditAmount(String(t.amount));
+    setEditWhen(t.when||''); setEditEncargoId(t.encargoId||'');
+    setEditFreq(t.freq||'mensal'); setEditMonth(t.month||'');
+  };
+  const cancelEdit = () => { setEditId(null); setEditLabel(''); setEditAmount(''); setEditWhen(''); setEditEncargoId(''); setEditFreq('mensal'); setEditMonth(''); };
+  const saveEdit = () => {
+    if (!editLabel.trim()) return;
+    A.updateTemplate(editId, { label:editLabel.trim(), amount:parseFloat(editAmount)||0,
+      when:editWhen.trim()||null, encargoId:editEncargoId||null, freq:editFreq, month:editMonth||null });
+    cancelEdit();
+  };
+
+  const monthly = templates.filter(t => t.freq==='mensal');
+  const annual  = templates.filter(t => t.freq==='anual');
+
+  const TemplateRow = ({ t }) => {
+    const isEditing = editId === t.id;
+    const encargo = encargos.find(e => e.id===t.encargoId);
+    if (isEditing) return (
+      <div style={{ padding:'14px 0', borderBottom:`1px solid ${p.border}`, display:'flex', flexDirection:'column', gap:8 }}>
+        <window.TextInput value={editLabel} onChange={setEditLabel} placeholder="Descrição" />
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+          <window.TextInput value={editAmount} onChange={setEditAmount} placeholder="Valor" prefix="€" type="number" />
+          <window.TextInput value={editWhen} onChange={setEditWhen} placeholder="Ex.: dia 5" />
+        </div>
+        {editFreq === 'anual' && (
+          <select value={editMonth} onChange={e => setEditMonth(e.target.value)}
+            style={{ padding:'10px 12px', fontSize:14, fontWeight:600, fontFamily:f.family,
+              border:`1px solid ${p.border}`, borderRadius:10, background:p.surface }}>
+            <option value="">— mês —</option>
+            {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={saveEdit} style={{ ...s.btnPrimary(), fontSize:12, padding:'7px 14px' }}>Guardar</button>
+          <button onClick={cancelEdit} style={{ ...s.btnGhost(), fontSize:12, padding:'7px 14px' }}>Cancelar</button>
+          <button onClick={() => { A.deleteTemplate(t.id); cancelEdit(); }}
+            style={{ marginLeft:'auto', background:'transparent', border:'none', color:p.expense,
+              fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:f.family }}>Eliminar</button>
+        </div>
+      </div>
+    );
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 0',
+        borderBottom:`1px solid ${p.border}` }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:14, fontWeight:600 }}>{t.label}</div>
+          <div style={{ fontSize:11, color:p.textMute, marginTop:2 }}>
+            {t.when && <span>{t.when} · </span>}
+            {encargo && <span style={{ color:p.blue }}>{encargo.name} · </span>}
+            {t.freq==='anual' ? <span style={{ color:p.purple }}>Anual · {t.month}</span> : <span>Mensal</span>}
+          </div>
+        </div>
+        <div style={{ ...s.number(14), flexShrink:0 }}>{window.fmtEurFull(t.amount)}</div>
+        <button onClick={() => startEdit(t)} style={{ background:'transparent', border:'none',
+          color:p.textMute, fontSize:13, cursor:'pointer', padding:'4px 8px', fontFamily:f.family }}>Editar</button>
+      </div>
+    );
+  };
+
+  return (
+    <window.Modal open={open} onClose={() => { cancelEdit(); onClose(); }} title="Tarefas recorrentes"
+      subtitle="Aparecem automaticamente em cada novo mês." width={560}
+      footer={<>
+        <button onClick={() => setShowAdd(a => !a)} style={s.btnGhost()}>+ Nova recorrente</button>
+        <button onClick={() => { cancelEdit(); onClose(); }} style={s.btnPrimary()}>Fechar</button>
+      </>}>
+      {showAdd && (
+        <window.NewTaskModal open={showAdd} onClose={() => setShowAdd(false)}
+          encargos={encargos}
+          onCreate={(label, amount, opts) => {
+            A.addTemplate({ label, amount, encargoId:opts.encargoId||null,
+              when:opts.when||null, freq:opts.freq||'mensal', month:opts.month||null });
+          }} />
+      )}
+      {templates.length === 0 && (
+        <div style={{ textAlign:'center', padding:'32px 0', color:p.textMute, fontSize:13 }}>
+          Sem tarefas recorrentes. Cria a primeira.
+        </div>
+      )}
+      {monthly.length > 0 && (
+        <>
+          <div style={{ ...s.kicker(), marginTop:4 }}>Mensais</div>
+          {monthly.map(t => <TemplateRow key={t.id} t={t} />)}
+        </>
+      )}
+      {annual.length > 0 && (
+        <>
+          <div style={{ ...s.kicker(), marginTop:16 }}>Anuais</div>
+          {annual.map(t => <TemplateRow key={t.id} t={t} />)}
+        </>
+      )}
+    </window.Modal>
+  );
+};
+
+window.NewTaskModal = function NewTaskModal({ open, onClose, onCreate, encargos=[] }) {
+  const s = window.MM_STYLES, p = window.MM_PALETTE, f = window.MM_FONT;
   const [label, setLabel] = useSM('');
   const [amount, setAmount] = useSM('');
-  useEM(() => { if (open) { setLabel(''); setAmount(''); } }, [open]);
+  const [recurring, setRecurring] = useSM(false);
+  const [when, setWhen] = useSM('');
+  const [encargoId, setEncargoId] = useSM('');
+  // inline new encargo
+  const [newEnc, setNewEnc] = useSM(false);
+  const [encName, setEncName] = useSM('');
+  const [encAmount, setEncAmount] = useSM('');
+  const [encFreq, setEncFreq] = useSM('mensal');
+  const [encCat, setEncCat] = useSM('');
+  const [encMonth, setEncMonth] = useSM('');
+  const MONTHS = window.MM_STORE.helpers.MONTHS;
+
+  useEM(() => {
+    if (open) {
+      setLabel(''); setAmount(''); setRecurring(false); setWhen(''); setEncargoId('');
+      setNewEnc(false); setEncName(''); setEncAmount(''); setEncFreq('mensal'); setEncCat(''); setEncMonth('');
+    }
+  }, [open]);
+
+  const handleCreateEncargo = () => {
+    const name = encName.trim();
+    if (!name) return;
+    const A = window.MM_STORE.actions;
+    const newId = 'e' + Date.now();
+    A.addEncargo({ id: newId, name, amount: parseFloat(encAmount)||0,
+      freq: encFreq, cat: encCat.trim()||'outros', month: encMonth||null });
+    setEncargoId(newId);
+    setNewEnc(false);
+    setEncName(''); setEncAmount(''); setEncFreq('mensal'); setEncCat(''); setEncMonth('');
+  };
+
+  const handleCreate = () => {
+    const lbl = label.trim();
+    if (!lbl) return;
+    onCreate(lbl, parseFloat(amount)||0, { recurring, when: when.trim()||null, encargoId: encargoId||null });
+    onClose();
+  };
+
+  // live list including any just-created encargo
+  const liveEncargos = window.MM_STORE.get().encargos || encargos;
+
   return (
     <window.Modal open={open} onClose={onClose} title="Nova tarefa"
-      subtitle="Tarefa extra que não vem de um encargo recorrente."
       footer={<>
         <button onClick={onClose} style={s.btnGhost()}>Cancelar</button>
-        <button onClick={() => { onCreate(label.trim(), parseFloat(amount)||0); onClose(); }}
-          disabled={!label.trim()}
-          style={{ ...s.btnPrimary(), opacity:!label.trim()?0.4:1 }}>Criar tarefa</button>
+        <button onClick={handleCreate} disabled={!label.trim()}
+          style={{ ...s.btnPrimary(), opacity:!label.trim()?0.4:1 }}>
+          {recurring ? 'Criar recorrente' : 'Criar tarefa'}
+        </button>
       </>}>
       <window.Field label="Descrição">
-        <window.TextInput value={label} onChange={setLabel} placeholder="Ex.: Pagar reparação carro" />
+        <window.TextInput value={label} onChange={setLabel} placeholder="Ex.: Nocas → Conta Conjunta" />
       </window.Field>
       <window.Field label="Valor (€)">
         <window.TextInput value={amount} onChange={setAmount} placeholder="0" prefix="€" type="number" />
       </window.Field>
+      <window.Field label="Data de débito (opcional)" hint="Ex.: dia 5">
+        <window.TextInput value={when} onChange={setWhen} placeholder="dia 5" />
+      </window.Field>
+
+      {/* Encargo picker + inline create */}
+      <window.Field label="Encargo relacionado (opcional)" hint="Para aparecer nos relatórios de gastos">
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <select value={encargoId} onChange={e => setEncargoId(e.target.value)}
+            style={{ flex:1, padding:'11px 12px', fontSize:14, fontWeight:600,
+              fontFamily:f.family, border:'none', outline:'none', background:'transparent',
+              color: encargoId ? p.text : p.textMute }}>
+            <option value="">— nenhum —</option>
+            {liveEncargos.filter(e => e.active).map(e => (
+              <option key={e.id} value={e.id}>{e.name} ({window.fmtEurFull(e.amount)})</option>
+            ))}
+          </select>
+          <button onClick={() => setNewEnc(v => !v)} style={{
+            flexShrink:0, background: newEnc ? p.surface3 : 'transparent',
+            border:`1px solid ${p.border}`, borderRadius:8,
+            padding:'6px 10px', fontSize:12, fontWeight:700,
+            color: p.textDim, cursor:'pointer', fontFamily:f.family, whiteSpace:'nowrap',
+          }}>+ Novo</button>
+        </div>
+      </window.Field>
+
+      {newEnc && (
+        <div style={{ background:p.surface2, border:`1px solid ${p.border}`,
+          borderRadius:12, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:p.textMute, letterSpacing:'0.06em',
+            textTransform:'uppercase', marginBottom:2 }}>Novo encargo</div>
+          <window.TextInput value={encName} onChange={setEncName} placeholder="Nome do encargo" />
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <window.TextInput value={encAmount} onChange={setEncAmount} placeholder="Valor" prefix="€" type="number" />
+            <window.TextInput value={encCat} onChange={setEncCat} placeholder="Categoria" />
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            {['mensal','anual'].map(fr => (
+              <button key={fr} onClick={() => setEncFreq(fr)} style={{
+                ...s.pill(encFreq===fr), fontSize:12, padding:'6px 14px',
+              }}>{fr === 'mensal' ? 'Mensal' : 'Anual'}</button>
+            ))}
+            {encFreq === 'anual' && (
+              <select value={encMonth} onChange={e => setEncMonth(e.target.value)}
+                style={{ flex:1, padding:'6px 10px', fontSize:13, fontWeight:600,
+                  fontFamily:f.family, border:`1px solid ${p.border}`, borderRadius:100,
+                  background:p.surface, color: encMonth ? p.text : p.textMute }}>
+                <option value="">— mês —</option>
+                {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
+          </div>
+          <button onClick={handleCreateEncargo} disabled={!encName.trim()}
+            style={{ ...s.btnPrimary(), opacity:!encName.trim()?0.4:1, fontSize:13 }}>
+            Criar encargo e seleccionar
+          </button>
+        </div>
+      )}
+      {/* Recurring toggle */}
+      <div onClick={() => setRecurring(r => !r)} style={{
+        marginTop:8, display:'flex', alignItems:'center', gap:12, cursor:'pointer',
+        padding:'14px 16px', borderRadius:12,
+        background: recurring ? p.greenSoft : p.surface2,
+        border: `1px solid ${recurring ? 'rgba(31,122,82,0.2)' : p.border}`,
+      }}>
+        <div style={{
+          width:36, height:20, borderRadius:100, flexShrink:0,
+          background: recurring ? p.green : p.surface3,
+          position:'relative', transition:'background 0.2s',
+        }}>
+          <div style={{
+            position:'absolute', top:2, left: recurring ? 18 : 2,
+            width:16, height:16, borderRadius:'50%', background:'white',
+            transition:'left 0.2s', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+          }} />
+        </div>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color: recurring ? p.green : p.text }}>
+            Repetir todos os meses
+          </div>
+          <div style={{ fontSize:11, color:p.textMute, marginTop:2 }}>
+            {recurring ? 'Esta tarefa aparece automaticamente em cada novo mês' : 'Só existe neste mês'}
+          </div>
+        </div>
+      </div>
     </window.Modal>
   );
 };
@@ -1914,18 +2207,21 @@ const { useState: useST } = React;
 window.ScreenTarefas = function ScreenTarefas({ goto }) {
   const p = window.MM_PALETTE, f = window.MM_FONT, s = window.MM_STYLES;
   const D = window.MM_DATA;
+  const { state, actions: A } = window.useMonimoniStore();
   const fmtEur = window.fmtEur, fmtEurFull = window.fmtEurFull;
   const [filter, setFilter] = useST('all');
   const [group,  setGroup]  = useST('status');
   const [showNew, setShowNew] = useST(false);
+  const [showTemplates, setShowTemplates] = useST(false);
   const [detailId, setDetailId] = useST(null);
 
+  const templates = state.taskTemplates || [];
   const overdueTasks = D.tasks.filter(t => !t.done && window.taskOverdueInfo(t).isOverdue);
   const filtered = D.tasks.filter(t => {
     if (filter==='pending') return !t.done;
     if (filter==='done')    return t.done;
-    if (filter==='auto')    return t.type==='Auto';
-    if (filter==='manual')  return t.type==='Manual';
+    if (filter==='recorrente') return t.type==='Auto';
+    if (filter==='pontual')    return t.type==='Manual';
     if (filter==='overdue') return !t.done && window.taskOverdueInfo(t).isOverdue;
     return true;
   });
@@ -1939,7 +2235,7 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
 
   const groups = group==='status'
     ? [{ id:'pending', title:'Por fazer', items:filtered.filter(t=>!t.done) }, { id:'done', title:'Feito', items:filtered.filter(t=>t.done) }]
-    : [{ id:'manual',  title:'Manuais',   items:filtered.filter(t=>t.type==='Manual') }, { id:'auto', title:'Automáticas', items:filtered.filter(t=>t.type==='Auto') }];
+    : [{ id:'pontual', title:'Pontuais', items:filtered.filter(t=>t.type==='Manual') }, { id:'recorrente', title:'Recorrentes', items:filtered.filter(t=>t.type==='Auto') }];
 
   return (
     <div>
@@ -1951,7 +2247,12 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
           : overdueTasks.length>0
             ? <span><strong style={{ color:p.expense, fontWeight:700 }}>{overdueTasks.length} {overdueTasks.length===1?'tarefa atrasada':'tarefas atrasadas'}</strong> · falta transferir {fmtEurFull(totalPending)}.</span>
             : `Falta transferir ${fmtEurFull(totalPending)} este mês.`}
-        action={<button onClick={() => setShowNew(true)} style={s.btnGhost()}>+ Tarefa extra</button>}
+        action={<>
+          <button onClick={() => setShowTemplates(true)} style={s.btnGhost()}>
+            ↺ Recorrentes {templates.length > 0 && <span style={{ marginLeft:4, fontSize:11, opacity:0.7 }}>{templates.length}</span>}
+          </button>
+          <button onClick={() => setShowNew(true)} style={s.btnPrimary()}>+ Nova tarefa</button>
+        </>}
       />
 
       {/* Summary */}
@@ -1992,12 +2293,12 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[
-            { id:'all',     label:'Todas',    count:D.tasks.length },
-            { id:'pending', label:'Por fazer', count:D.tasks.filter(t=>!t.done).length },
+            { id:'all',        label:'Todas',       count:D.tasks.length },
+            { id:'pending',    label:'Por fazer',   count:D.tasks.filter(t=>!t.done).length },
             ...(overdueTasks.length>0 ? [{ id:'overdue', label:'Atrasadas', count:overdueTasks.length, danger:true }] : []),
-            { id:'done',   label:'Feitas',  count:D.tasks.filter(t=>t.done).length },
-            { id:'manual', label:'Manuais', count:D.tasks.filter(t=>t.type==='Manual').length },
-            { id:'auto',   label:'Auto',    count:D.tasks.filter(t=>t.type==='Auto').length },
+            { id:'done',       label:'Feitas',      count:D.tasks.filter(t=>t.done).length },
+            { id:'pontual',    label:'Pontuais',    count:D.tasks.filter(t=>t.type==='Manual').length },
+            { id:'recorrente', label:'Recorrentes', count:D.tasks.filter(t=>t.type==='Auto').length },
           ].map(fl => (
             <button key={fl.id} onClick={() => setFilter(fl.id)} style={{
               ...s.pill(filter===fl.id), padding:'7px 13px',
@@ -2012,6 +2313,9 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
           {[{id:'status',label:'Estado'},{id:'type',label:'Tipo'}].map(g => (
             <button key={g.id} onClick={() => setGroup(g.id)} style={s.pill(group===g.id)}>{g.label}</button>
           ))}
+          <button onClick={() => setShowTemplates(true)} style={{ ...s.pill(false), borderStyle:'dashed' }}>
+            ↺ Gerir recorrentes
+          </button>
         </div>
       </div>
 
@@ -2019,10 +2323,10 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
       {D.tasks.length===0 && (
         <div style={s.card()}>
           <window.EmptyState title="Sem tarefas neste mês"
-            body="As tarefas são geradas automaticamente a partir dos encargos activos. Adiciona encargos primeiro, ou cria uma tarefa pontual."
+            body="Cria tarefas recorrentes para aparecerem automaticamente todos os meses, ou adiciona uma tarefa pontual para este mês."
             action={<div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => goto('encargos')} style={s.btnGhost()}>Ir aos encargos</button>
-              <button onClick={() => setShowNew(true)} style={s.btnPrimary()}>+ Tarefa extra</button>
+              <button onClick={() => setShowTemplates(true)} style={s.btnGhost()}>↺ Gerir recorrentes</button>
+              <button onClick={() => setShowNew(true)} style={s.btnPrimary()}>+ Nova tarefa</button>
             </div>} />
         </div>
       )}
@@ -2094,7 +2398,10 @@ window.ScreenTarefas = function ScreenTarefas({ goto }) {
       ))}
 
       <window.NewTaskModal open={showNew} onClose={() => setShowNew(false)}
-        onCreate={(label,amount) => window.MM_STORE.actions.addTask(label,amount,'Manual')} />
+        encargos={state.encargos||[]}
+        onCreate={(label, amount, opts) => window.MM_STORE.actions.addTask(label, amount, opts)} />
+      <window.TaskTemplatesModal open={showTemplates} onClose={() => setShowTemplates(false)}
+        templates={templates} encargos={state.encargos||[]} />
       <window.TaskDrawer open={detailId!==null} onClose={() => setDetailId(null)} taskId={detailId} />
     </div>
   );
