@@ -337,9 +337,15 @@ window.MM_DATA = {
           banks: newState.banks||seed.banks,
         };
 
-        // Ensure current month exists
-        if (!state.months[todayKey]) {
-          state.months[todayKey] = { tasks:[], activity:[], investimentosMonth:[], josi:{rate:7.5,workerName:'Josi',sessions:[]}, variaveis:{} };
+        // Ensure current month exists — if it wasn't in Firebase, generate tasks from templates
+        if (!filteredMonths[todayKey]) {
+          const prevJosi = Object.values(filteredMonths).slice(-1)[0]?.josi;
+          state.months[todayKey] = {
+            tasks: generateTasksForMonth(state, todayIdx, todayYear),
+            activity: [], investimentosMonth: [],
+            josi: { rate: prevJosi?.rate||7.5, workerName: prevJosi?.workerName||'Josi', sessions: [] },
+            variaveis: {},
+          };
         }
       } catch(e) { state = makeSeed(); }
       _loaded = true;
