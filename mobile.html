@@ -1,0 +1,1892 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#ffffff">
+  <title>monimoni</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #fff; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Manrope', system-ui, sans-serif; overflow-x: hidden; }
+    #root { min-height: 100%; }
+    @keyframes mmFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+    @keyframes mmSlideUp { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: none } }
+    @keyframes mmSheetUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+    ::-webkit-scrollbar { display: none; }
+    input, button, select, textarea { -webkit-appearance: none; }
+    button { -webkit-tap-highlight-color: transparent; }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<div id="err" style="display:none;position:fixed;inset:0;background:#fff;z-index:9999;padding:32px;font-family:monospace;font-size:12px;white-space:pre-wrap;overflow:auto;color:#b03030"></div>
+
+<script>
+window._fbReady = new Promise(r => window._fbReadyResolve = r);
+window.onerror = (msg, src, line, col, err) => {
+  const d = document.getElementById('err');
+  d.style.display = 'block';
+  d.textContent = (d.textContent||'') + `\n[${src?.split('/').pop()}:${line}] ${msg}`;
+};
+window.addEventListener('unhandledrejection', e => {
+  const d = document.getElementById('err');
+  d.style.display = 'block';
+  d.textContent = (d.textContent||'') + `\n[promise] ${e.reason}`;
+});
+</script>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+const db = getFirestore(initializeApp({
+  apiKey: "AIzaSyCpYKbyco8Kka-xOI42qS7BuVdGWhKuzP4",
+  authDomain: "monimoni-e96b6.firebaseapp.com",
+  projectId: "monimoni-e96b6",
+  storageBucket: "monimoni-e96b6.firebasestorage.app",
+  messagingSenderId: "820576443924",
+  appId: "1:820576443924:web:b0eb6201d0c6580d37d101"
+}));
+window._fbLoad = async k => {
+  try { const s = await getDoc(doc(db,'monimoni',k)); return s.exists() ? s.data().value : null; }
+  catch(e) { console.warn('fbLoad',e); return null; }
+};
+window._fbSave = async (k,v) => {
+  try { await setDoc(doc(db,'monimoni',k),{value:v}); }
+  catch(e) { console.warn('fbSave',e); }
+};
+window._fbReadyResolve();
+</script>
+
+<!-- ═══ TOKENS ══════════════════════════════════════════════════════════════ -->
+<script type="text/babel">
+window.MM_PALETTE = {
+  bg:'#ffffff', surface:'#ffffff', surface2:'#f6f5f3', surface3:'#ecebe8',
+  border:'rgba(0,0,0,0.08)', borderStrong:'rgba(0,0,0,0.14)',
+  shadow:'0 1px 2px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.04)',
+  shadowHover:'0 2px 4px rgba(0,0,0,0.06), 0 10px 30px rgba(0,0,0,0.07)',
+  text:'#111111', textDim:'#555555', textMute:'#888888',
+  green:'#1f7a52', greenSoft:'rgba(31,122,82,0.10)',
+  amber:'#a8620e', amberSoft:'rgba(168,98,14,0.12)',
+  expense:'#b03030', expenseSoft:'rgba(176,48,48,0.10)',
+  blue:'#2b5aa0', blueSoft:'rgba(43,90,160,0.10)',
+  purple:'#6d4ba8', purpleSoft:'rgba(109,75,168,0.10)',
+  onGreen:'#ffffff',
+};
+
+window.MM_FONT = {
+  family:"'Manrope', system-ui, sans-serif",
+  displayTrack:'-0.03em', headingTrack:'-0.02em', bodyTrack:'-0.005em',
+  wordmarkWeight:800, displayWeight:700, headingWeight:700, numberWeight:700,
+};
+
+window.fmtEur     = n => (n||0).toLocaleString('pt-PT',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+window.fmtEurFull = n => (n||0).toLocaleString('pt-PT',{style:'currency',currency:'EUR'});
+
+window.taskOverdueInfo = function(task) {
+  if (!task || task.done || !task.when) return { isOverdue:false, daysLate:0, dueDay:null };
+  const m = /dia\s+(\d+)/i.exec(task.when);
+  if (!m) return { isOverdue:false, daysLate:0, dueDay:null };
+  const dueDay = parseInt(m[1], 10);
+  const s = window.MM_STORE && window.MM_STORE.get();
+  if (!s) return { isOverdue:false, daysLate:0, dueDay };
+  const now = new Date();
+  const today = { year:now.getFullYear(), monthIdx:now.getMonth(), day:now.getDate() };
+  const cm = s.currentMonth;
+  if (cm.year !== today.year || cm.idx !== today.monthIdx) return { isOverdue:false, daysLate:0, dueDay };
+  const daysLate = today.day - dueDay;
+  return { isOverdue: daysLate > 0, daysLate, dueDay };
+};
+
+window.MM_DATA = {
+  user:'Nocas', partner:'João', month:'Maio', monthIdx:4, year:2026,
+  tasks:[], tasksDone:0, tasksTotal:0, manualDone:0, manualTotal:0, autoDone:0, autoTotal:0,
+  pendingAmount:0, monthTotal:0, lastMonthTotal:0, josiHours:0, josiAmount:0, josiRate:7.5,
+  bigUpcoming:{ name:'—', amount:0, when:'—' },
+  spendHistory:[], activity:[],
+  josi:{ rate:7.5, workerName:'Josi', sessions:[], history:[] },
+  variaveis:{ 'Eletricidade':[], 'Gás':[], 'Água':[] },
+  encargos:[], cofres:[], banks:[], investimentos:[],
+  monthInvestedAmount:0, monthInvestedCount:0,
+};
+</script>
+
+<!-- ═══ STORE ═══════════════════════════════════════════════════════════════ -->
+<script type="text/babel">
+(function() {
+  const listeners = new Set();
+
+  function makeSeed() {
+    const now = new Date();
+    const curIdx = now.getMonth();
+    const curYear = now.getFullYear();
+    const curKey = `${curYear}-${String(curIdx+1).padStart(2,'0')}`;
+    return {
+      currentMonth: { idx:curIdx, year:curYear },
+      banks: [
+        { id:'activo', name:'ActivoBank' },
+        { id:'tr',     name:'Trade Republic' },
+        { id:'cgd',    name:'Caixa Geral de Depósitos' },
+        { id:'novo',   name:'NovoBanco' },
+      ],
+      taskTemplates: [],
+      months: {
+        [curKey]: {
+          tasks:[], activity:[], investimentosMonth:[],
+          josi:{ rate:7.5, workerName:'Josi', sessions:[] },
+          variaveis:{},
+        },
+      },
+      cofres: [
+        { name:'Cofre Casa',   balance:4250, target:8000, color:'green',  bankId:'activo', bank:'ActivoBank',     history:[] },
+        { name:'Cofre Carro',  balance:1800, target:3000, color:'blue',   bankId:'activo', bank:'ActivoBank',     history:[] },
+        { name:'Cofre Férias', balance:920,  target:2500, color:'amber',  bankId:'tr',     bank:'Trade Republic', history:[] },
+        { name:'Cofre Tomás',  balance:6400, target:null, color:'purple', bankId:'tr',     bank:'Trade Republic', history:[] },
+      ],
+      investimentos: [
+        { plat:'XTB',         asset:'ETF MSCI World', amount:12400, change:0 },
+        { plat:'XTB',         asset:'ETF S&P 500',    amount:5200,  change:0 },
+        { plat:'Trading 212', asset:'Pie Conjunto',   amount:3800,  change:0 },
+        { plat:'Maclear',     asset:'Crypto Vault',   amount:1450,  change:0 },
+      ],
+      encargos: [
+        { id:'e1',  name:'Renda',               amount:750,    active:true,  freq:'mensal', cat:'casa' },
+        { id:'e2',  name:'Eletricidade (média)', amount:80,     active:true,  freq:'mensal', cat:'utilidades' },
+        { id:'e3',  name:'Gás',                  amount:35,     active:true,  freq:'mensal', cat:'utilidades' },
+        { id:'e4',  name:'Água',                 amount:28,     active:true,  freq:'mensal', cat:'utilidades' },
+        { id:'e5',  name:'Internet + TV',         amount:42,     active:true,  freq:'mensal', cat:'utilidades' },
+        { id:'e6',  name:'Telemóvel Nocas',       amount:18,     active:true,  freq:'mensal', cat:'utilidades' },
+        { id:'e7',  name:'Telemóvel João',        amount:18,     active:true,  freq:'mensal', cat:'utilidades' },
+        { id:'e8',  name:'Creche Tomás',          amount:380,    active:true,  freq:'mensal', cat:'tomás' },
+        { id:'e9',  name:'Natação Tomás',         amount:35,     active:true,  freq:'mensal', cat:'tomás' },
+        { id:'e10', name:'Seguro saúde família',  amount:95,     active:true,  freq:'mensal', cat:'seguros' },
+        { id:'e11', name:'Alimentação',           amount:350,    active:true,  freq:'mensal', cat:'casa' },
+        { id:'e12', name:'Combustível',           amount:110,    active:true,  freq:'mensal', cat:'casa' },
+        { id:'e13', name:'Seguro KIA',            amount:217.46, active:true,  freq:'anual',  cat:'seguros', month:'Setembro' },
+        { id:'e14', name:'Seguro Audi',           amount:198,    active:true,  freq:'anual',  cat:'seguros', month:'Março' },
+        { id:'e15', name:'IUC KIA',               amount:145,    active:true,  freq:'anual',  cat:'seguros', month:'Julho' },
+        { id:'e16', name:'IUC Audi',              amount:132,    active:true,  freq:'anual',  cat:'seguros', month:'Maio' },
+        { id:'e17', name:'IRS Casal',             amount:0,      active:false, freq:'anual',  cat:'seguros', month:'Maio' },
+        { id:'e18', name:'Inspeção KIA',          amount:35,     active:true,  freq:'anual',  cat:'seguros', month:'Outubro' },
+      ],
+      user:'Nocas',
+      partner:'João',
+    };
+  }
+
+  let state = makeSeed();
+  let saveTimer = null;
+  let _loaded = false;
+
+  function persist() {
+    if (!_loaded) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (window._fbSave) window._fbSave('v2-state', JSON.stringify(state));
+    }, 2000);
+  }
+
+  function notify() { listeners.forEach(fn => fn(state)); }
+
+  function set(updater) {
+    state = typeof updater === 'function' ? updater(state) : { ...state, ...updater };
+    persist();
+    notify();
+  }
+
+  function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  function monthKey(idx, year) { return `${year}-${String(idx+1).padStart(2,'0')}`; }
+
+  function currentMonthData() {
+    const { idx, year } = state.currentMonth;
+    return state.months[monthKey(idx,year)] || Object.values(state.months).slice(-1)[0];
+  }
+
+  function currentMonthLabel() { return MONTHS[state.currentMonth.idx]; }
+
+  function generateTasksForMonth(s, idx, year) {
+    const tasks = [];
+    let id = Date.now();
+    (s.taskTemplates || []).forEach(t => {
+      if (t.freq === 'mensal') {
+        tasks.push({ id:id++, label:t.label, amount:t.amount, type:'Auto',
+          done:false, templateId:t.id, encargoId:t.encargoId||null, when:t.when||null, who:null });
+      } else if (t.freq === 'anual') {
+        const mIdx = MONTHS.findIndex(m => m === t.month);
+        if (mIdx === idx) tasks.push({ id:id++, label:t.label, amount:t.amount, type:'Auto',
+          done:false, templateId:t.id, encargoId:t.encargoId||null, when:t.when||null, badge:'Anual', who:null });
+      }
+    });
+    return tasks;
+  }
+
+  function ensureMonth(idx, year) {
+    const key = monthKey(idx, year);
+    if (state.months[key]) return;
+    const firstKey = Object.keys(state.months)[0];
+    const first = state.months[firstKey] || {};
+    set(s => ({
+      ...s,
+      months: {
+        ...s.months,
+        [key]: {
+          tasks: generateTasksForMonth(s, idx, year),
+          activity: [],
+          investimentosMonth: [],
+          josi: { rate: first.josi?.rate||7.5, workerName: first.josi?.workerName||'Josi', sessions: [] },
+          variaveis: {},
+        },
+      },
+    }));
+  }
+
+  function logActivity(text, kind, amt) {
+    const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+    set(s => ({
+      ...s,
+      months: {
+        ...s.months,
+        [key]: {
+          ...s.months[key],
+          activity: [{ who:s.user, what:text, amt, ts: Date.now(), kind }, ...(s.months[key]?.activity||[])].slice(0,50),
+        },
+      },
+    }));
+  }
+
+  const actions = {
+    loadState(newState) {
+      try {
+        const seed = makeSeed();
+        const now = new Date();
+        const todayIdx = now.getMonth(), todayYear = now.getFullYear();
+        const todayKey = `${todayYear}-${String(todayIdx+1).padStart(2,'0')}`;
+
+        let cm = newState.currentMonth || seed.currentMonth;
+        if (cm.year > todayYear || (cm.year === todayYear && cm.idx > todayIdx)) {
+          cm = { idx: todayIdx, year: todayYear };
+        }
+
+        const filteredMonths = {};
+        Object.entries(newState.months||{}).forEach(([k, v]) => {
+          if (k <= todayKey) filteredMonths[k] = v;
+        });
+
+        const templates = newState.taskTemplates || [];
+
+        state = { ...seed, ...newState,
+          currentMonth: cm,
+          taskTemplates: templates,
+          months: { ...seed.months, ...filteredMonths },
+          encargos: newState.encargos||seed.encargos,
+          cofres: newState.cofres||seed.cofres,
+          investimentos: newState.investimentos||seed.investimentos,
+          banks: newState.banks||seed.banks,
+        };
+
+        if (!filteredMonths[todayKey]) {
+          const prevJosi = Object.values(filteredMonths).slice(-1)[0]?.josi;
+          state.months[todayKey] = {
+            tasks: generateTasksForMonth(state, todayIdx, todayYear),
+            activity: [], investimentosMonth: [],
+            josi: { rate: prevJosi?.rate||7.5, workerName: prevJosi?.workerName||'Josi', sessions: [] },
+            variaveis: {},
+          };
+        }
+      } catch(e) { state = makeSeed(); }
+      _loaded = true;
+      notify();
+    },
+
+    setCurrentUser(name) { set(s => ({ ...s, user:name })); },
+
+    goToMonth(idx, year) { ensureMonth(idx,year); set(s => ({ ...s, currentMonth:{ idx, year } })); },
+    prevMonth() {
+      let { idx, year } = state.currentMonth;
+      if (--idx < 0) { idx=11; year--; }
+      actions.goToMonth(idx, year);
+    },
+    nextMonth() {
+      let { idx, year } = state.currentMonth;
+      if (++idx > 11) { idx=0; year++; }
+      actions.goToMonth(idx, year);
+    },
+
+    toggleTask(id) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      const task = state.months[key]?.tasks.find(t => t.id===id);
+      if (!task) return;
+      const newDone = !task.done;
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.map(t => t.id===id ? { ...t, done:newDone, who:newDone?s.user:null } : t) }}}));
+      logActivity(newDone?`marcou "${task.label}"`:`desmarcou "${task.label}"`, 'task', `${newDone?'+':'−'}${Math.round(task.amount)}€`);
+    },
+    addTask(label, amount, opts={}) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      const tid = opts.recurring ? 'tm' + Date.now() : null;
+      const task = { id:Date.now(), label, amount, type: opts.recurring ? 'Auto' : 'Manual',
+        done:false, who:null, templateId:tid, encargoId:opts.encargoId||null, when:opts.when||null };
+      if (opts.recurring) {
+        const tmpl = { id:tid, label, amount, encargoId:opts.encargoId||null,
+          when:opts.when||null, freq:opts.freq||'mensal', month:opts.month||null };
+        set(s => ({ ...s,
+          taskTemplates: [...(s.taskTemplates||[]), tmpl],
+          months: { ...s.months, [key]: { ...s.months[key],
+            tasks: [...(s.months[key]?.tasks||[]), task] }},
+        }));
+      } else {
+        set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+          tasks: [...(s.months[key]?.tasks||[]), task] }}}));
+      }
+      logActivity(`adicionou tarefa "${label}"`, 'task', `${Math.round(amount)}€`);
+    },
+    updateTask(id, patch) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.map(t => t.id===id ? { ...t, ...patch } : t) }}}));
+    },
+    deleteTask(id) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.filter(x => x.id!==id) }}}));
+    },
+    skipTask(id, reason='') {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.map(x => x.id===id ? { ...x, skipped:true, skipReason:reason, done:false } : x) }}}));
+    },
+    unskipTask(id) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        tasks: s.months[key].tasks.map(x => x.id===id ? { ...x, skipped:false, skipReason:'' } : x) }}}));
+    },
+
+    addJosiSession(date, hours, obs='') {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      const rate = state.months[key]?.josi?.rate||7.5;
+      const sid = Date.now();
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        josi: { ...s.months[key].josi,
+          sessions: [...(s.months[key].josi?.sessions||[]), { id:sid, date, hours, obs }]
+            .sort((a,b) => a.date.localeCompare(b.date)) }}}}));
+      logActivity(`registou ${hours}h de limpeza`, 'josi', `${Math.round(hours*rate)}€`);
+    },
+    deleteJosiSession(id) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        josi: { ...s.months[key].josi,
+          sessions: s.months[key].josi.sessions.filter(ss => ss.id!==id) }}}}));
+      logActivity('eliminou sessão de limpeza', 'josi', '');
+    },
+    setJosiRate(rate) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        josi: { ...s.months[key].josi, rate }}}}));
+    },
+
+    addInvestment(plat, asset, amount) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => {
+        const existing = s.investimentos.find(i => i.plat===plat && i.asset===asset);
+        const investimentos = existing
+          ? s.investimentos.map(i => i===existing ? { ...i, amount:i.amount+amount } : i)
+          : [...s.investimentos, { plat, asset, amount, change:0, registeredAt: new Date().toISOString() }];
+        const md = s.months[key]||{};
+        return { ...s, investimentos, months: { ...s.months, [key]: {
+          tasks:md.tasks||[], activity:md.activity||[], variaveis:md.variaveis||{},
+          josi:md.josi||{ rate:7.5, workerName:'Josi', sessions:[] },
+          ...md,
+          investimentosMonth: [...(md.investimentosMonth||[]), { plat, asset, amount, date:new Date().toISOString().slice(0,10) }],
+        }}};
+      });
+      logActivity(`registou investimento ${asset}`, 'invest', `${Math.round(amount)}€`);
+    },
+    updateInvestimento(idx, patch) {
+      set(s => ({ ...s, investimentos: s.investimentos.map((it,i) => i===idx ? { ...it, ...patch } : it) }));
+    },
+    deleteInvestimento(idx) {
+      const it = state.investimentos[idx];
+      set(s => ({ ...s, investimentos: s.investimentos.filter((_,i) => i!==idx) }));
+      if (it) logActivity(`eliminou investimento "${it.asset}"`, 'invest', '');
+    },
+
+    depositCofre(idx, amount, desc='') {
+      const entry = { date: new Date().toISOString().slice(0,10), amount, desc, type:'deposit' };
+      set(s => ({ ...s, cofres: s.cofres.map((c,i) => i===idx ? { ...c, balance:c.balance+amount, history:[entry,...(c.history||[])] } : c) }));
+      const c = state.cofres[idx];
+      logActivity(`depositou em "${c.name}"${desc ? ` · ${desc}` : ''}`, 'cofre', `+${Math.round(amount)}€`);
+    },
+    withdrawCofre(idx, amount, desc='') {
+      const entry = { date: new Date().toISOString().slice(0,10), amount, desc, type:'withdraw' };
+      set(s => ({ ...s, cofres: s.cofres.map((c,i) => i===idx ? { ...c, balance:Math.max(0,c.balance-amount), history:[entry,...(c.history||[])] } : c) }));
+      const c = state.cofres[idx];
+      logActivity(`levantou de "${c.name}"${desc ? ` · ${desc}` : ''}`, 'cofre', `−${Math.round(amount)}€`);
+    },
+    createCofre({ name, bankId, target, color }) {
+      const bank = state.banks.find(b => b.id===bankId);
+      set(s => ({ ...s, cofres: [...s.cofres, { name, bankId, bank:bank?.name, balance:0, target, color, history:[] }] }));
+      logActivity(`criou cofre "${name}"`, 'cofre', '');
+    },
+    updateCofre(idx, patch) {
+      set(s => ({ ...s, cofres: s.cofres.map((c,i) => i===idx ? { ...c, ...patch } : c) }));
+    },
+    deleteCofre(idx) {
+      const c = state.cofres[idx];
+      set(s => ({ ...s, cofres: s.cofres.filter((_,i) => i!==idx) }));
+      if (c) logActivity(`eliminou cofre "${c.name}"`, 'cofre', '');
+    },
+
+    addBank(name) {
+      const id = 'b'+Date.now();
+      set(s => ({ ...s, banks: [...s.banks, { id, name }] }));
+      return { id, name };
+    },
+
+    addVariable(category, date, amount, desc='') {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
+        variaveis: { ...(s.months[key]?.variaveis||{}),
+          [category]: [...(s.months[key]?.variaveis?.[category]||[]), { date, amount, desc, ts: Date.now() }] }}}}));
+      logActivity(`registou ${category}${desc ? ` · ${desc}` : ''}`, 'spend', `${Math.round(amount)}€`);
+    },
+    deleteVariable(category, date, amount) {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      set(s => {
+        const arr = s.months[key]?.variaveis?.[category]||[];
+        const i = arr.findIndex(v => v.date===date && v.amount===amount);
+        if (i===-1) return s;
+        const next = [...arr.slice(0,i), ...arr.slice(i+1)];
+        return { ...s, months: { ...s.months, [key]: { ...s.months[key],
+          variaveis: { ...s.months[key].variaveis, [category]:next }}}};
+      });
+    },
+
+    addEncargo(encargo) {
+      const id = encargo.id || ('e'+Date.now());
+      set(s => ({ ...s, encargos: [...s.encargos, { ...encargo, id, active:true }] }));
+      logActivity(`adicionou encargo "${encargo.name}"`, 'edit', `${Math.round(encargo.amount)}€`);
+    },
+    updateEncargo(id, patch) {
+      set(s => ({ ...s, encargos: s.encargos.map(e => e.id===id ? { ...e, ...patch } : e) }));
+    },
+    deleteEncargo(id) {
+      set(s => ({ ...s, encargos: s.encargos.filter(x => x.id!==id) }));
+    },
+    toggleEncargo(id) {
+      set(s => ({ ...s, encargos: s.encargos.map(e => e.id===id ? { ...e, active:!e.active } : e) }));
+    },
+
+    closeMonth() {
+      const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
+      const md = state.months[key];
+      if (!md) return;
+      const tasks = md.tasks || [];
+      const fixos = tasks.filter(t => t.done && state.encargos.find(e => e.id===t.encargoId && e.freq==='mensal'))
+        .reduce((sum,t) => sum+t.amount, 0);
+      const anuais = tasks.filter(t => t.done && state.encargos.find(e => e.id===t.encargoId && e.freq==='anual'))
+        .reduce((sum,t) => sum+t.amount, 0);
+      const varTotal = Object.values(md.variaveis||{}).flat().reduce((sum,v) => sum+v.amount, 0);
+      const josiH = (md.josi?.sessions||[]).reduce((sum,x) => sum+x.hours, 0);
+      const josiTotal = josiH * (md.josi?.rate||7.5);
+      set(s => ({
+        ...s,
+        months: { ...s.months, [key]: { ...s.months[key],
+          _spendSummary: { fixos, var:varTotal, josi:josiTotal, anuais },
+          _historySummary: { h:josiH, total:josiTotal },
+        }},
+      }));
+      let { idx, year } = state.currentMonth;
+      if (++idx > 11) { idx=0; year++; }
+      actions.goToMonth(idx, year);
+    },
+
+    maxMonthKey() {
+      return Object.keys(state.months).sort().slice(-1)[0] || monthKey(state.currentMonth.idx, state.currentMonth.year);
+    },
+
+    reset() { state = makeSeed(); persist(); notify(); },
+  };
+
+  window.MM_STORE = {
+    get: () => state,
+    set,
+    subscribe,
+    actions,
+    helpers: { monthKey, currentMonthData, currentMonthLabel, MONTHS, MONTHS_SHORT },
+  };
+})();
+</script>
+
+<!-- ═══ syncMMData ════════════════════════════════════════════════════════════ -->
+<script type="text/babel">
+function computeSpendHistory(s) {
+  const SH = window.MM_STORE.helpers.MONTHS_SHORT;
+  const { idx, year } = s.currentMonth;
+  const result = [];
+  for (let i = 6; i >= 0; i--) {
+    let mIdx = idx - i, mYear = year;
+    while (mIdx < 0) { mIdx += 12; mYear -= 1; }
+    const key = `${mYear}-${String(mIdx+1).padStart(2,'0')}`;
+    const md = s.months[key];
+    const isCurrent = i === 0;
+    const label = SH[mIdx];
+    if (!md) { result.push({ m:label, fixos:0, var:0, josi:0, anuais:0, current:isCurrent }); continue; }
+    if (!isCurrent && md._spendSummary) { result.push({ ...md._spendSummary, m:label, current:false }); continue; }
+    const tasks = md.tasks || [];
+    const fixos = tasks.filter(t => t.done && s.encargos.find(e => e.id===t.encargoId && e.freq==='mensal'))
+      .reduce((sum,t) => sum+t.amount, 0);
+    const anuais = tasks.filter(t => t.done && s.encargos.find(e => e.id===t.encargoId && e.freq==='anual'))
+      .reduce((sum,t) => sum+t.amount, 0);
+    const varTotal = Object.values(md.variaveis||{}).flat().reduce((sum,v) => sum+v.amount, 0);
+    const josiH = (md.josi?.sessions||[]).reduce((sum,x) => sum+x.hours, 0);
+    result.push({ m:label, fixos, var:varTotal, josi:josiH*(md.josi?.rate||7.5), anuais, current:isCurrent });
+  }
+  return result;
+}
+
+function computeJosiHistory(s) {
+  const SH = window.MM_STORE.helpers.MONTHS_SHORT;
+  const { idx, year } = s.currentMonth;
+  const result = [];
+  for (let i = 6; i >= 0; i--) {
+    let mIdx = idx - i, mYear = year;
+    while (mIdx < 0) { mIdx += 12; mYear -= 1; }
+    const key = `${mYear}-${String(mIdx+1).padStart(2,'0')}`;
+    const md = s.months[key];
+    const isCurrent = i === 0;
+    const label = SH[mIdx];
+    if (!md) { result.push({ m:label, h:0, total:0, current:isCurrent }); continue; }
+    if (!isCurrent && md._historySummary) { result.push({ m:label, h:md._historySummary.h||0, total:md._historySummary.total||0, current:false }); continue; }
+    const h = (md.josi?.sessions||[]).reduce((sum,x) => sum+x.hours, 0);
+    result.push({ m:label, h, total:h*(md.josi?.rate||7.5), current:isCurrent });
+  }
+  return result;
+}
+
+function computeAllVariables(s) {
+  const allVars = {};
+  Object.values(s.months).forEach(md => {
+    Object.entries(md.variaveis||{}).forEach(([cat, entries]) => {
+      allVars[cat] = allVars[cat] || [];
+      (entries||[]).forEach(e => {
+        if (!allVars[cat].find(x => x.date===e.date && x.amount===e.amount)) allVars[cat].push({...e});
+      });
+    });
+  });
+  Object.values(allVars).forEach(arr => arr.sort((a,b) => a.date.localeCompare(b.date)));
+  return allVars;
+}
+
+function findBigUpcoming(s) {
+  const SH = window.MM_STORE.helpers.MONTHS_SHORT;
+  const curIdx = s.currentMonth.idx;
+  let best = null, bestDiff = Infinity;
+  s.encargos.filter(e => e.active && e.freq==='anual').forEach(e => {
+    const eIdx = SH.findIndex(m => e.month?.startsWith(m));
+    if (eIdx===-1) return;
+    let diff = eIdx - curIdx;
+    if (diff <= 0) diff += 12;
+    if (diff < bestDiff) { bestDiff = diff; best = { ...e, monthsAway: diff }; }
+  });
+  return best;
+}
+
+function syncMMData() {
+  const s = window.MM_STORE.get();
+  const md = window.MM_STORE.helpers.currentMonthData();
+  const monthLabel = window.MM_STORE.helpers.currentMonthLabel();
+  const tasks = md?.tasks || [];
+  const tasksDone = tasks.filter(t => t.done).length;
+  const manual = tasks.filter(t => t.type==='Manual');
+  const auto   = tasks.filter(t => t.type==='Auto');
+  const pending = tasks.filter(t => !t.done && !t.skipped).reduce((sum,t) => sum+t.amount, 0);
+  const spendHistory = computeSpendHistory(s);
+  const josiHistory  = computeJosiHistory(s);
+  const allVars      = computeAllVariables(s);
+  const bigUpcoming  = findBigUpcoming(s);
+  const invMonth     = md?.investimentosMonth || [];
+  const monthInvestedAmount = invMonth.reduce((sum,x) => sum+x.amount, 0);
+  const monthInvestedCount  = invMonth.length;
+  const josiWithHistory = md?.josi ? { ...md.josi, history: josiHistory } : { sessions:[], rate:7.5, workerName:'Josi', history:josiHistory };
+
+  Object.assign(window.MM_DATA, {
+    user: s.currentUser || s.user || 'Nocas',
+    partner: s.partner || 'João',
+    month: monthLabel,
+    monthIdx: s.currentMonth.idx,
+    year: s.currentMonth.year,
+    tasks,
+    tasksDone,
+    tasksTotal: tasks.filter(t => !t.skipped).length,
+    manualDone: manual.filter(t=>t.done).length,
+    manualTotal: manual.length,
+    autoDone: auto.filter(t=>t.done).length,
+    autoTotal: auto.length,
+    pendingAmount: pending,
+    monthTotal: tasks.filter(t=>t.done).reduce((sum,t) => sum+t.amount, 0),
+    activity: md?.activity || [],
+    spendHistory,
+    variaveis: Object.keys(allVars).length ? allVars : (md?.variaveis||{}),
+    josi: josiWithHistory,
+    josiHours: (md?.josi?.sessions||[]).reduce((s,x) => s+x.hours, 0),
+    josiAmount: (md?.josi?.sessions||[]).reduce((s,x) => s+x.hours, 0) * (md?.josi?.rate||7.5),
+    josiRate: md?.josi?.rate||7.5,
+    cofres: s.cofres,
+    investimentos: s.investimentos,
+    encargos: s.encargos,
+    banks: s.banks,
+    bigUpcoming,
+    monthInvestedAmount,
+    monthInvestedCount,
+  });
+}
+
+window.MM_STORE.subscribe(syncMMData);
+syncMMData();
+</script>
+
+<!-- ═══ MOBILE APP ════════════════════════════════════════════════════════════ -->
+<script type="text/babel">
+const P = window.MM_PALETTE;
+const F = window.MM_FONT;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function fmtRelTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return typeof ts === 'string' ? ts : '';
+  const now = new Date();
+  const diffMin = Math.floor((now - d) / 60000);
+  const diffH   = Math.floor((now - d) / 3600000);
+  if (diffMin < 1)  return 'agora';
+  if (diffMin < 60) return `há ${diffMin} min`;
+  if (diffH < 24)   return `hoje ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate()-1);
+  if (d.toDateString() === yesterday.toDateString()) return `ontem`;
+  return `${d.getDate()}/${d.getMonth()+1}`;
+}
+
+// ── Bottom Sheet ──────────────────────────────────────────────────────────────
+function BottomSheet({ open, onClose, title, children, noPadding }) {
+  React.useEffect(() => {
+    if (open) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+  if (!open) return null;
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, zIndex:500,
+      background:'rgba(0,0,0,0.45)', animation:'mmFadeIn 0.15s ease-out',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        position:'absolute', bottom:0, left:0, right:0,
+        background:P.bg, borderRadius:'20px 20px 0 0',
+        maxHeight:'88vh', display:'flex', flexDirection:'column',
+        animation:'mmSheetUp 0.28s cubic-bezier(0.32,0.72,0,1)',
+        paddingBottom:'env(safe-area-inset-bottom)',
+      }}>
+        <div style={{ padding:'12px 20px 14px', borderBottom:`1px solid ${P.border}`,
+                      display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+          <div style={{ fontSize:16, fontWeight:700, color:P.text }}>{title}</div>
+          <button onClick={onClose} style={{ width:32, height:32, borderRadius:'50%',
+            background:P.surface2, border:'none', color:P.textDim, fontSize:18, fontWeight:700,
+            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+        </div>
+        <div style={{ overflow:'auto', flex:1, padding: noPadding ? 0 : '16px 20px' }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── MInput ────────────────────────────────────────────────────────────────────
+function MInput({ label, value, onChange, placeholder, type='text', prefix }) {
+  return (
+    <div style={{ marginBottom:16 }}>
+      {label && <div style={{ fontSize:12, fontWeight:700, color:P.textDim, marginBottom:6 }}>{label}</div>}
+      <div style={{ display:'flex', alignItems:'center', border:`1px solid ${P.border}`,
+                    borderRadius:12, background:P.surface2, padding:'0 14px' }}>
+        {prefix && <span style={{ color:P.textMute, fontSize:14, marginRight:6, fontWeight:600 }}>{prefix}</span>}
+        <input type={type} value={value} onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          style={{ flex:1, border:'none', outline:'none', background:'transparent',
+                   padding:'13px 0', fontSize:15, fontWeight:600, fontFamily:F.family,
+                   color:P.text }} />
+      </div>
+    </div>
+  );
+}
+
+// ── MBtn ──────────────────────────────────────────────────────────────────────
+function MBtn({ onClick, children, color, disabled, full, ghost, style: sx }) {
+  const bg = ghost ? 'transparent' : (color || P.text);
+  const fg = ghost ? P.text : '#fff';
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      background: disabled ? P.surface3 : bg,
+      color: disabled ? P.textMute : fg,
+      border: ghost ? `1px solid ${P.border}` : 'none',
+      borderRadius:100, padding:'13px 22px', fontSize:14, fontWeight:700,
+      cursor: disabled ? 'default' : 'pointer', fontFamily:F.family,
+      width: full ? '100%' : undefined, opacity: disabled ? 0.6 : 1,
+      ...sx,
+    }}>{children}</button>
+  );
+}
+
+// ── PIN Screen ────────────────────────────────────────────────────────────────
+function PinScreen({ pinHash, onSuccess, onSetup, userName }) {
+  const isSetup = !pinHash;
+  const [phase, setPhase] = React.useState(isSetup ? 'enter' : 'verify');
+  const [pin, setPin] = React.useState('');
+  const [firstPin, setFirstPin] = React.useState('');
+  const [error, setError] = React.useState('');
+  const inputRef = React.useRef(null);
+  React.useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, [phase]);
+
+  const submit = val => {
+    const next = val.trim();
+    if (next.length < 4) return;
+    if (phase === 'verify') {
+      if (btoa(next) === pinHash) { onSuccess(); }
+      else { setError('PIN incorreto.'); setPin(''); }
+    } else if (phase === 'enter') {
+      setFirstPin(next); setPin(''); setPhase('confirm');
+    } else if (phase === 'confirm') {
+      if (next === firstPin) { onSetup(next); }
+      else { setError('PINs não coincidem.'); setPin(''); setFirstPin(''); setPhase('enter'); }
+    }
+  };
+
+  const handleChange = e => {
+    const val = e.target.value.replace(/\D/g, '').slice(0,6);
+    setPin(val); setError('');
+    if (val.length >= 4) submit(val);
+  };
+
+  const title = phase==='verify' ? `Olá, ${userName || 'amigo'}.` : phase==='enter' ? 'Cria um PIN' : 'Confirma o PIN';
+  const sub = phase==='verify' ? 'Introduz o teu PIN para continuar' : phase==='enter' ? '4 a 6 dígitos' : 'Repete os mesmos dígitos';
+
+  return (
+    <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
+                  background:P.bg, fontFamily:F.family, padding:24 }}>
+      <div style={{ width:'100%', maxWidth:320, textAlign:'center' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:P.green, color:P.onGreen,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontWeight:800, fontSize:28, margin:'0 auto 28px' }}>m</div>
+        <div style={{ fontSize:26, fontWeight:800, letterSpacing:'-0.02em', marginBottom:6 }}>{title}</div>
+        <div style={{ fontSize:14, color:P.textDim, fontWeight:500, marginBottom:32 }}>{sub}</div>
+        <input ref={inputRef} type="password" inputMode="numeric" value={pin} onChange={handleChange}
+          placeholder="••••"
+          style={{ width:'100%', padding:'18px', fontSize:30, letterSpacing:'0.4em',
+                   textAlign:'center', fontFamily:F.family, fontWeight:700,
+                   border:`2px solid ${error ? P.expense : P.border}`,
+                   borderRadius:16, outline:'none', background:P.surface2, color:P.text }} />
+        {error && <div style={{ fontSize:13, color:P.expense, fontWeight:600, marginTop:12 }}>{error}</div>}
+        <MBtn onClick={() => submit(pin)} full style={{ marginTop:16 }}>
+          {phase==='verify' ? 'Entrar' : phase==='enter' ? 'Continuar' : 'Confirmar'}
+        </MBtn>
+      </div>
+    </div>
+  );
+}
+
+// ── User Select ────────────────────────────────────────────────────────────────
+function UserSelect({ onSelect }) {
+  const users = [
+    { name:'Nocas', initial:'N', color:P.green },
+    { name:'João',  initial:'J', color:P.blue },
+  ];
+  return (
+    <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
+                  background:P.bg, fontFamily:F.family, padding:24 }}>
+      <div style={{ width:'100%', maxWidth:360, textAlign:'center' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:P.green, color:P.onGreen,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontWeight:800, fontSize:28, margin:'0 auto 28px' }}>m</div>
+        <div style={{ fontSize:26, fontWeight:800, letterSpacing:'-0.02em', marginBottom:8 }}>Quem és tu?</div>
+        <div style={{ fontSize:14, color:P.textDim, fontWeight:500, marginBottom:36 }}>Seleciona o teu perfil</div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          {users.map(u => (
+            <button key={u.name} onClick={() => onSelect(u.name)} style={{
+              padding:28, borderRadius:18, border:`1px solid ${P.border}`,
+              background:P.surface2, cursor:'pointer', fontFamily:F.family,
+              display:'flex', alignItems:'center', gap:18, textAlign:'left',
+            }}>
+              <div style={{ width:56, height:56, borderRadius:'50%', background:u.color, color:'#fff',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            fontWeight:800, fontSize:24, flexShrink:0 }}>{u.initial}</div>
+              <div style={{ fontSize:20, fontWeight:800, color:P.text }}>{u.name}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tab Bar ────────────────────────────────────────────────────────────────────
+function TabBar({ tab, setTab, onPlus }) {
+  const tabs = [
+    { id:'home',    label:'Início',  icon:'⌂' },
+    { id:'tarefas', label:'Tarefas', icon:'✓' },
+    { id:'__plus__',label:'',        icon:'+', isPrimary:true },
+    { id:'josi',    label:'Limpeza', icon:'h' },
+    { id:'mais',    label:'Mais',    icon:'≡' },
+  ];
+  return (
+    <div style={{
+      position:'fixed', bottom:0, left:0, right:0, zIndex:200,
+      background:'rgba(255,255,255,0.92)', backdropFilter:'blur(12px)',
+      borderTop:`1px solid ${P.border}`,
+      paddingBottom:'env(safe-area-inset-bottom)',
+      display:'flex', alignItems:'center',
+    }}>
+      {tabs.map(t => {
+        if (t.isPrimary) return (
+          <div key="plus" style={{ flex:1, display:'flex', justifyContent:'center', alignItems:'center' }}>
+            <button onClick={onPlus} style={{
+              width:52, height:52, borderRadius:'50%', background:P.green, color:P.onGreen,
+              border:'none', fontSize:26, fontWeight:700, cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 4px 16px rgba(31,122,82,0.35)', marginTop:-14,
+            }}>{t.icon}</button>
+          </div>
+        );
+        const active = tab === t.id;
+        return (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            flex:1, padding:'10px 0 8px', border:'none', background:'transparent',
+            cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:3,
+          }}>
+            <div style={{ fontSize:18, color: active ? P.green : P.textMute }}>{t.icon}</div>
+            <div style={{ fontSize:10, fontWeight: active ? 700 : 500, color: active ? P.green : P.textMute,
+                          fontFamily:F.family }}>{t.label}</div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Quick Sheet ────────────────────────────────────────────────────────────────
+function QuickSheet({ open, onClose, onAction }) {
+  const actions = [
+    { id:'gasto',    icon:'€', label:'Adicionar gasto',      color:P.expense },
+    { id:'josi',     icon:'h', label:'Registar limpeza',     color:P.amber },
+    { id:'invest',   icon:'↗', label:'Registar investimento', color:P.green },
+    { id:'task',     icon:'✓', label:'Nova tarefa',           color:P.blue },
+  ];
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Ação rápida">
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        {actions.map(a => (
+          <button key={a.id} onClick={() => { onClose(); onAction(a.id); }} style={{
+            padding:'18px 14px', borderRadius:16, background:P.surface2,
+            border:`1px solid ${P.border}`, cursor:'pointer', textAlign:'left',
+            fontFamily:F.family,
+          }}>
+            <div style={{ width:36, height:36, borderRadius:'50%',
+                          background:a.color+'1a', color:a.color,
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:18, fontWeight:700, marginBottom:10 }}>{a.icon}</div>
+            <div style={{ fontSize:14, fontWeight:700, color:P.text }}>{a.label}</div>
+          </button>
+        ))}
+      </div>
+    </BottomSheet>
+  );
+}
+
+// ── Gasto Form Sheet ───────────────────────────────────────────────────────────
+function GastoSheet({ open, onClose }) {
+  const D = window.MM_DATA;
+  const cats = Object.keys(D.variaveis||{}).length ? Object.keys(D.variaveis) : ['Eletricidade','Gás','Água'];
+  const today = new Date().toISOString().slice(0,10);
+  const [cat, setCat] = React.useState(cats[0]||'');
+  const [amount, setAmount] = React.useState('');
+  const [desc, setDesc] = React.useState('');
+  const [date, setDate] = React.useState(today);
+  const [newCat, setNewCat] = React.useState('');
+  const [addingCat, setAddingCat] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) { setCat(cats[0]||''); setAmount(''); setDesc(''); setDate(today); setNewCat(''); setAddingCat(false); }
+  }, [open]);
+
+  const finalCat = addingCat ? newCat.trim() : cat;
+  const valid = finalCat && amount && parseFloat(amount) > 0;
+
+  const handleSubmit = () => {
+    if (!valid) return;
+    window.MM_STORE.actions.addVariable(finalCat, date, parseFloat(amount), desc.trim());
+    onClose();
+  };
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Registar gasto variável">
+      <div style={{ paddingBottom:8 }}>
+        <div style={{ fontSize:12, fontWeight:700, color:P.textDim, marginBottom:8 }}>Categoria</div>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+          {cats.map(c => (
+            <button key={c} onClick={() => { setCat(c); setAddingCat(false); }} style={{
+              padding:'8px 14px', borderRadius:100, border:`1px solid ${(!addingCat&&cat===c)?P.text:P.border}`,
+              background:(!addingCat&&cat===c)?P.text:'transparent',
+              color:(!addingCat&&cat===c)?P.bg:P.text,
+              fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F.family,
+            }}>{c}</button>
+          ))}
+          <button onClick={() => setAddingCat(true)} style={{
+            padding:'8px 14px', borderRadius:100, border:`1px dashed ${P.borderStrong}`,
+            background: addingCat ? P.surface2 : 'transparent', color:P.textDim,
+            fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F.family,
+          }}>+ Nova</button>
+        </div>
+        {addingCat && <MInput label="Nova categoria" value={newCat} onChange={setNewCat} placeholder="Ex.: Internet, Combustível…" />}
+        <MInput label="Valor (€)" value={amount} onChange={setAmount} placeholder="0" prefix="€" type="number" />
+        <MInput label="Descrição (opcional)" value={desc} onChange={setDesc} placeholder="ex: Continente, combustível…" />
+        <MInput label="Data" value={date} onChange={setDate} type="date" />
+        <MBtn onClick={handleSubmit} disabled={!valid} full>Registar</MBtn>
+      </div>
+    </BottomSheet>
+  );
+}
+
+// ── Josi Form Sheet ────────────────────────────────────────────────────────────
+function JosiSheet({ open, onClose }) {
+  const D = window.MM_DATA;
+  const today = new Date().toISOString().slice(0,10);
+  const [date, setDate] = React.useState(today);
+  const [hours, setHours] = React.useState('4');
+  const [obs, setObs] = React.useState('');
+  React.useEffect(() => { if (open) { setDate(today); setHours('4'); setObs(''); } }, [open]);
+  const total = (parseFloat(hours)||0) * D.josiRate;
+  const valid = hours && parseFloat(hours) > 0;
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Registar limpeza">
+      <MInput label="Data" value={date} onChange={setDate} type="date" />
+      <MInput label={`Horas (${D.josiRate}€/h)`} value={hours} onChange={setHours} prefix="h" type="number" />
+      <MInput label="Observação (opcional)" value={obs} onChange={setObs} placeholder="Ex.: Fez janelas…" />
+      {valid && (
+        <div style={{ padding:'12px 16px', borderRadius:12, background:P.amberSoft, marginBottom:16,
+                      display:'flex', justifyContent:'space-between' }}>
+          <span style={{ color:P.amber, fontWeight:600, fontSize:14 }}>Total</span>
+          <span style={{ color:P.amber, fontWeight:700, fontSize:14 }}>{window.fmtEurFull(total)}</span>
+        </div>
+      )}
+      <MBtn onClick={() => { window.MM_STORE.actions.addJosiSession(date, parseFloat(hours)||0, obs.trim()); onClose(); }}
+        disabled={!valid} full color={P.amber}>Registar sessão</MBtn>
+    </BottomSheet>
+  );
+}
+
+// ── Invest Form Sheet ──────────────────────────────────────────────────────────
+function InvestSheet({ open, onClose }) {
+  const D = window.MM_DATA;
+  const plats = [...new Set(D.investimentos.map(i => i.plat))];
+  const [plat, setPlat] = React.useState(plats[0]||'');
+  const [asset, setAsset] = React.useState('');
+  const [amount, setAmount] = React.useState('');
+  const [newPlatName, setNewPlatName] = React.useState('');
+  const [addingPlat, setAddingPlat] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) { setPlat(plats[0]||''); setAsset(''); setAmount(''); setNewPlatName(''); setAddingPlat(false); }
+  }, [open]);
+
+  const finalPlat = addingPlat ? newPlatName.trim() : plat;
+  const valid = finalPlat && asset.trim() && amount && parseFloat(amount) > 0;
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Registar investimento">
+      <div style={{ fontSize:12, fontWeight:700, color:P.textDim, marginBottom:8 }}>Plataforma</div>
+      <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+        {plats.map(pl => (
+          <button key={pl} onClick={() => { setPlat(pl); setAddingPlat(false); }} style={{
+            padding:'8px 14px', borderRadius:100,
+            border:`1px solid ${(!addingPlat&&plat===pl)?P.text:P.border}`,
+            background:(!addingPlat&&plat===pl)?P.text:'transparent',
+            color:(!addingPlat&&plat===pl)?P.bg:P.text,
+            fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F.family,
+          }}>{pl}</button>
+        ))}
+        <button onClick={() => setAddingPlat(true)} style={{
+          padding:'8px 14px', borderRadius:100, border:`1px dashed ${P.borderStrong}`,
+          background: addingPlat ? P.surface2 : 'transparent', color:P.textDim,
+          fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F.family,
+        }}>+ Nova</button>
+      </div>
+      {addingPlat && <MInput label="Nova plataforma" value={newPlatName} onChange={setNewPlatName} placeholder="Ex.: eToro, Degiro…" />}
+      <MInput label="Ativo / posição" value={asset} onChange={setAsset} placeholder="Ex.: ETF S&P 500" />
+      <MInput label="Valor (€)" value={amount} onChange={setAmount} placeholder="0" prefix="€" type="number" />
+      <MBtn onClick={() => { window.MM_STORE.actions.addInvestment(finalPlat, asset.trim(), parseFloat(amount)||0); onClose(); }}
+        disabled={!valid} full color={P.green}>Registar</MBtn>
+    </BottomSheet>
+  );
+}
+
+// ── Task Form Sheet ────────────────────────────────────────────────────────────
+function TaskSheet({ open, onClose }) {
+  const [label, setLabel] = React.useState('');
+  const [amount, setAmount] = React.useState('');
+  React.useEffect(() => { if (open) { setLabel(''); setAmount(''); } }, [open]);
+  const valid = label.trim() && amount && parseFloat(amount) >= 0;
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Nova tarefa">
+      <MInput label="Descrição" value={label} onChange={setLabel} placeholder="Ex.: Transferência conta conjunta" />
+      <MInput label="Valor (€)" value={amount} onChange={setAmount} placeholder="0" prefix="€" type="number" />
+      <MBtn onClick={() => { window.MM_STORE.actions.addTask(label.trim(), parseFloat(amount)||0); onClose(); }}
+        disabled={!valid} full>Criar tarefa</MBtn>
+    </BottomSheet>
+  );
+}
+
+// ── Cofre Action Sheet ─────────────────────────────────────────────────────────
+function CofreActionSheet({ open, onClose, cofreIdx, mode }) {
+  const D = window.MM_DATA;
+  const cofre = cofreIdx != null ? D.cofres[cofreIdx] : null;
+  const [amount, setAmount] = React.useState('');
+  const [desc, setDesc] = React.useState('');
+  React.useEffect(() => { if (open) { setAmount(''); setDesc(''); } }, [open]);
+  if (!cofre) return null;
+  const amt = parseFloat(amount)||0;
+  const isDeposit = mode === 'deposit';
+  const newBal = isDeposit ? cofre.balance + amt : Math.max(0, cofre.balance - amt);
+  return (
+    <BottomSheet open={open} onClose={onClose} title={isDeposit ? `Depositar em "${cofre.name}"` : `Levantar de "${cofre.name}"`}>
+      <MInput label="Valor (€)" value={amount} onChange={setAmount} placeholder="0" prefix="€" type="number" />
+      <MInput label="Descrição (opcional)" value={desc} onChange={setDesc}
+        placeholder={isDeposit ? 'Ex.: Ordenado' : 'Ex.: Pagamento'} />
+      {amt > 0 && (
+        <div style={{ padding:'12px 16px', borderRadius:12, background:P.surface2, marginBottom:16,
+                      display:'flex', justifyContent:'space-between' }}>
+          <span style={{ color:P.textDim, fontWeight:600, fontSize:14 }}>Novo saldo</span>
+          <span style={{ fontWeight:700, fontSize:14, color: isDeposit ? P.green : P.text }}>
+            {window.fmtEurFull(newBal)}
+          </span>
+        </div>
+      )}
+      <MBtn
+        onClick={() => {
+          if (isDeposit) window.MM_STORE.actions.depositCofre(cofreIdx, amt, desc.trim());
+          else window.MM_STORE.actions.withdrawCofre(cofreIdx, amt, desc.trim());
+          onClose();
+        }}
+        disabled={!amt} full color={isDeposit ? P.green : P.expense}>
+        {isDeposit ? `Depositar ${window.fmtEurFull(amt)}` : `Levantar ${window.fmtEurFull(amt)}`}
+      </MBtn>
+    </BottomSheet>
+  );
+}
+
+// ── Screen: Home ───────────────────────────────────────────────────────────────
+function ScreenHome({ setTab }) {
+  syncMMData();
+  const D = window.MM_DATA;
+  const s = window.MM_STORE.get();
+  const MONTHS = window.MM_STORE.helpers.MONTHS;
+
+  const pct = D.tasksTotal > 0 ? Math.round((D.tasksDone / D.tasksTotal) * 100) : 0;
+  const curKey = window.MM_STORE.helpers.monthKey(s.currentMonth.idx, s.currentMonth.year);
+  const maxKey = window.MM_STORE.actions.maxMonthKey();
+  const atMax = curKey >= maxKey;
+
+  // SVG ring
+  const r = 84, sw = 14;
+  const C = 2 * Math.PI * r;
+  const filled = C * (pct / 100);
+
+  const glyph = k => {
+    if (k==='task')   return { bg:P.greenSoft,   c:P.green,   sym:'✓' };
+    if (k==='invest') return { bg:P.greenSoft,   c:P.green,   sym:'↗' };
+    if (k==='josi')   return { bg:P.amberSoft,   c:P.amber,   sym:'h' };
+    if (k==='spend')  return { bg:P.expenseSoft, c:P.expense, sym:'€' };
+    return { bg:P.surface3, c:P.textDim, sym:'·' };
+  };
+
+  const activities = D.activity.slice(0, 5);
+
+  return (
+    <div style={{ padding:'16px 18px 90px', fontFamily:F.family }}>
+      {/* Header row */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div style={{ fontSize:20, fontWeight:800, color:P.text, letterSpacing:'-0.02em' }}>
+          Olá, {D.user}.
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+          <button onClick={() => window.MM_STORE.actions.prevMonth()} style={{
+            width:28, height:28, borderRadius:'50%', border:'none', background:P.surface2,
+            color:P.textDim, cursor:'pointer', fontSize:14, fontWeight:700, display:'flex',
+            alignItems:'center', justifyContent:'center',
+          }}>‹</button>
+          <div style={{ fontSize:13, fontWeight:700, color:P.text, padding:'0 6px' }}>
+            {D.month} {D.year}
+          </div>
+          <button onClick={() => !atMax && window.MM_STORE.actions.nextMonth()} style={{
+            width:28, height:28, borderRadius:'50%', border:'none', background:P.surface2,
+            color: atMax ? P.border : P.textDim, cursor: atMax ? 'default' : 'pointer',
+            fontSize:14, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center',
+          }}>›</button>
+        </div>
+      </div>
+
+      {/* Ring */}
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:20 }}>
+        <svg width={200} height={200} viewBox="0 0 200 200">
+          <circle cx={100} cy={100} r={r} fill="none" stroke={P.surface3} strokeWidth={sw} />
+          <circle cx={100} cy={100} r={r} fill="none"
+            stroke={pct===100 ? P.green : P.text} strokeWidth={sw}
+            strokeDasharray={`${filled} ${C - filled}`}
+            strokeLinecap="round"
+            transform="rotate(-90 100 100)" />
+          <text x={100} y={96} textAnchor="middle" fontFamily={F.family} fontWeight={800}
+            fontSize={34} fill={P.text} style={{ fontVariantNumeric:'tabular-nums' }}>{pct}%</text>
+          <text x={100} y={118} textAnchor="middle" fontFamily={F.family} fontWeight={500}
+            fontSize={12} fill={P.textMute}>
+            {D.tasksDone} de {D.tasksTotal} tarefas
+          </text>
+        </svg>
+        {/* Pills */}
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'center' }}>
+          {D.pendingAmount > 0 && (
+            <div style={{ padding:'7px 14px', borderRadius:100, background:P.expenseSoft,
+                          color:P.expense, fontSize:12, fontWeight:700 }}>
+              Por transferir {window.fmtEur(D.pendingAmount)}
+            </div>
+          )}
+          {D.bigUpcoming && D.bigUpcoming.amount > 0 && (
+            <div style={{ padding:'7px 14px', borderRadius:100, background:P.amberSoft,
+                          color:P.amber, fontSize:12, fontWeight:700 }}>
+              A chegar: {D.bigUpcoming.name} · {window.fmtEur(D.bigUpcoming.amount)} · {D.bigUpcoming.month}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Activity */}
+      {activities.length > 0 && (
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                        letterSpacing:'0.07em', marginBottom:12 }}>Atividade recente</div>
+          {activities.map((a, i) => {
+            const g = glyph(a.kind);
+            return (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
+                                    padding:'10px 0', borderBottom: i<activities.length-1 ? `1px solid ${P.border}` : 'none' }}>
+                <div style={{ width:32, height:32, borderRadius:'50%', background:g.bg, color:g.c,
+                              display:'flex', alignItems:'center', justifyContent:'center',
+                              fontSize:14, fontWeight:700, flexShrink:0 }}>{g.sym}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:P.text, overflow:'hidden',
+                                textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    {a.who} {a.what}
+                  </div>
+                  <div style={{ fontSize:11, color:P.textMute, marginTop:2 }}>{fmtRelTime(a.ts)}</div>
+                </div>
+                {a.amt && <div style={{ fontSize:12, fontWeight:700, color:P.textDim, flexShrink:0 }}>{a.amt}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Screen: Tarefas ────────────────────────────────────────────────────────────
+function ScreenTarefas() {
+  syncMMData();
+  const D = window.MM_DATA;
+  const [filter, setFilter] = React.useState('todo');
+
+  const filters = [
+    { id:'todo',   label:'Por fazer' },
+    { id:'all',    label:'Todas' },
+    { id:'manual', label:'Manuais' },
+    { id:'auto',   label:'Auto' },
+  ];
+
+  const allTasks = D.tasks;
+  const overdue = allTasks.filter(t => !t.done && !t.skipped && window.taskOverdueInfo(t).isOverdue);
+  const pending = allTasks.filter(t => !t.done && !t.skipped);
+  const done = allTasks.filter(t => t.done);
+
+  let filtered = allTasks;
+  if (filter==='todo')   filtered = allTasks.filter(t => !t.done && !t.skipped);
+  if (filter==='manual') filtered = allTasks.filter(t => t.type==='Manual');
+  if (filter==='auto')   filtered = allTasks.filter(t => t.type==='Auto');
+
+  const overdueFiltered  = filtered.filter(t => !t.done && !t.skipped && window.taskOverdueInfo(t).isOverdue);
+  const pendingFiltered  = filtered.filter(t => !t.done && !t.skipped && !window.taskOverdueInfo(t).isOverdue);
+  const doneFiltered     = filtered.filter(t => t.done);
+
+  function TaskRow({ task }) {
+    const od = window.taskOverdueInfo(task);
+    const isAuto = task.type === 'Auto';
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 18px',
+                    borderBottom:`1px solid ${P.border}`,
+                    background: od.isOverdue ? P.expenseSoft : P.bg,
+                    opacity: task.done ? 0.55 : 1 }}>
+        <div onClick={() => !task.skipped && window.MM_STORE.actions.toggleTask(task.id)} style={{
+          width:24, height:24, borderRadius:'50%', flexShrink:0,
+          border:`2px solid ${task.done ? P.green : od.isOverdue ? P.expense : P.textMute}`,
+          background: task.done ? P.green : 'transparent',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          color:'#fff', fontSize:13, fontWeight:800, cursor:'pointer',
+        }}>{task.done ? '✓' : ''}</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:14, fontWeight:600, color: od.isOverdue ? P.expense : task.done ? P.textMute : P.text,
+                        textDecoration: task.done ? 'line-through' : 'none',
+                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {task.label}
+          </div>
+          <div style={{ fontSize:11, color: od.isOverdue ? P.expense : P.textMute, marginTop:2, fontWeight:500 }}>
+            {od.isOverdue
+              ? `Atrasada ${od.daysLate} ${od.daysLate===1?'dia':'dias'} · era dia ${od.dueDay}`
+              : task.when ? `Débito ${task.when}` : isAuto ? 'Auto' : 'Manual'}
+          </div>
+        </div>
+        {task.badge && (
+          <div style={{ fontSize:10, fontWeight:700, color:P.purple, background:P.purpleSoft,
+                        padding:'2px 7px', borderRadius:6, flexShrink:0 }}>{task.badge}</div>
+        )}
+        <div style={{ fontSize:14, fontWeight:700, color: task.done ? P.textMute : P.text, flexShrink:0 }}>
+          {window.fmtEur(task.amount)}
+        </div>
+      </div>
+    );
+  }
+
+  function Group({ title, items, tint }) {
+    if (!items.length) return null;
+    return (
+      <div style={{ marginBottom:16 }}>
+        <div style={{ padding:'8px 18px', background: tint || P.surface2,
+                      display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div style={{ fontSize:12, fontWeight:700, color: tint ? P.expense : P.textDim,
+                        textTransform:'uppercase', letterSpacing:'0.06em' }}>{title} · {items.length}</div>
+          <div style={{ fontSize:12, fontWeight:700, color:P.textDim }}>
+            {window.fmtEur(items.reduce((s,t) => s+t.amount,0))}
+          </div>
+        </div>
+        {items.map(t => <TaskRow key={t.id} task={t} />)}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontFamily:F.family }}>
+      {/* Header */}
+      <div style={{ padding:'16px 18px 12px', background:P.bg }}>
+        <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                      letterSpacing:'0.07em', marginBottom:4 }}>TAREFAS</div>
+        <div style={{ fontSize:22, fontWeight:800, color:P.text, letterSpacing:'-0.02em' }}>
+          {D.tasksDone}/{D.tasksTotal} feitas
+        </div>
+      </div>
+      {/* Filter pills */}
+      <div style={{ display:'flex', gap:8, padding:'0 18px 12px', overflowX:'auto' }}>
+        {filters.map(fl => (
+          <button key={fl.id} onClick={() => setFilter(fl.id)} style={{
+            padding:'7px 14px', borderRadius:100, whiteSpace:'nowrap', flexShrink:0,
+            background: filter===fl.id ? P.text : 'transparent',
+            color: filter===fl.id ? P.bg : P.textDim,
+            border: filter===fl.id ? 'none' : `1px solid ${P.border}`,
+            fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:F.family,
+          }}>{fl.label}</button>
+        ))}
+      </div>
+      <div style={{ paddingBottom:80 }}>
+        <Group title="Atrasadas" items={overdueFiltered} tint={P.expenseSoft} />
+        <Group title="Por fazer" items={pendingFiltered} />
+        <Group title="Feitas" items={doneFiltered} />
+        {filtered.length === 0 && (
+          <div style={{ textAlign:'center', padding:'48px 24px', color:P.textMute, fontSize:14 }}>
+            Sem tarefas a mostrar.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Screen: Josi (Limpeza) ─────────────────────────────────────────────────────
+function ScreenJosi() {
+  syncMMData();
+  const D = window.MM_DATA;
+  const J = D.josi || { sessions:[], rate:7.5, workerName:'Josi', history:[] };
+  const [showNew, setShowNew] = React.useState(false);
+
+  const history = (J.history||[]).slice(-7);
+  const maxH = Math.max(1, ...history.map(x => x.h));
+
+  return (
+    <div style={{ fontFamily:F.family, paddingBottom:80 }}>
+      {/* Hero */}
+      <div style={{ margin:18, padding:22, borderRadius:18, background:P.amberSoft,
+                    border:`1px solid rgba(168,98,14,0.2)` }}>
+        <div style={{ fontSize:11, fontWeight:700, color:P.amber, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>
+          LIMPEZA · {J.workerName}
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <div style={{ fontSize:32, fontWeight:800, color:P.amber }}>{J.sessions.reduce((s,x)=>s+x.hours,0)}h</div>
+            <div style={{ fontSize:14, color:P.textDim, marginTop:2, fontWeight:500 }}>
+              {window.fmtEurFull(D.josiAmount)} · {J.rate}€/h
+            </div>
+          </div>
+          <button onClick={() => setShowNew(true)} style={{
+            background:P.amber, color:'#fff', border:'none', borderRadius:100,
+            padding:'12px 18px', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F.family,
+          }}>+ Registar</button>
+        </div>
+      </div>
+
+      {/* History strip */}
+      {history.length > 0 && (
+        <div style={{ margin:'0 18px 18px', padding:16, background:P.surface2, borderRadius:14 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                        letterSpacing:'0.06em', marginBottom:12 }}>Histórico</div>
+          <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:60 }}>
+            {history.map((m, i) => (
+              <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <div style={{ width:'80%', height:`${(m.h/maxH)*44}px`,
+                              background: m.current ? P.amber : P.surface3, borderRadius:4 }} />
+                <div style={{ fontSize:9, color:P.textMute, fontWeight:600 }}>{m.m}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sessions */}
+      <div style={{ padding:'0 18px' }}>
+        <div style={{ fontSize:12, fontWeight:700, color:P.textDim, textTransform:'uppercase',
+                      letterSpacing:'0.06em', marginBottom:12 }}>Sessões em {D.month}</div>
+        {J.sessions.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'32px 0', color:P.textMute, fontSize:14 }}>
+            Sem sessões este mês.
+          </div>
+        ) : J.sessions.map((sess, i) => (
+          <div key={sess.id||i} style={{ display:'flex', alignItems:'center', gap:12,
+                                         padding:'13px 0', borderBottom:`1px solid ${P.border}` }}>
+            <div style={{ width:40, flexShrink:0, fontSize:11, fontWeight:700, color:P.amber }}>
+              {new Date(sess.date).getDate()}/{new Date(sess.date).getMonth()+1}
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:600 }}>{sess.hours}h de limpeza</div>
+              {sess.obs && <div style={{ fontSize:11, color:P.textMute, marginTop:2 }}>{sess.obs}</div>}
+            </div>
+            <div style={{ fontSize:14, fontWeight:700, color:P.amber }}>
+              {window.fmtEurFull(sess.hours * J.rate)}
+            </div>
+          </div>
+        ))}
+      </div>
+      <JosiSheet open={showNew} onClose={() => setShowNew(false)} />
+    </div>
+  );
+}
+
+// ── Screen: Mais (gateway) ─────────────────────────────────────────────────────
+function ScreenMais({ setSub, setTab }) {
+  syncMMData();
+  const s = window.MM_STORE.get();
+  const D = window.MM_DATA;
+  const items = [
+    { id:'encargos',     icon:'€', label:'Enc. Fixos',        sub:'Mensais e anuais',      color:P.expense },
+    { id:'gastos',       icon:'≈', label:'Gastos Variáveis',  sub:'Luz, gás, água…',       color:P.amber },
+    { id:'cofres',       icon:'◆', label:'Cofres',            sub:'Poupanças com objetivo', color:P.blue },
+    { id:'investimentos',icon:'↗', label:'Investimentos',     sub:'XTB, TR, Maclear…',     color:P.green },
+  ];
+  return (
+    <div style={{ padding:'16px 18px 90px', fontFamily:F.family }}>
+      <div style={{ fontSize:22, fontWeight:800, color:P.text, marginBottom:20 }}>Mais</div>
+      <div style={{ marginBottom:20 }}>
+        {items.map(it => (
+          <button key={it.id} onClick={() => setSub(it.id)} style={{
+            display:'flex', alignItems:'center', gap:16, width:'100%',
+            padding:'16px 0', borderBottom:`1px solid ${P.border}`,
+            background:'transparent', border:'none', borderBottom:`1px solid ${P.border}`,
+            cursor:'pointer', fontFamily:F.family, textAlign:'left',
+          }}>
+            <div style={{ width:40, height:40, borderRadius:12,
+                          background: it.color + '1a', color:it.color,
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:18, fontWeight:700, flexShrink:0 }}>{it.icon}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:15, fontWeight:700, color:P.text }}>{it.label}</div>
+              <div style={{ fontSize:12, color:P.textMute, marginTop:2, fontWeight:500 }}>{it.sub}</div>
+            </div>
+            <div style={{ color:P.textMute, fontSize:16 }}>›</div>
+          </button>
+        ))}
+      </div>
+      {/* Settings */}
+      <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                    letterSpacing:'0.07em', marginBottom:12 }}>Definições</div>
+      <button onClick={() => { if (window.confirm('Fechar mês e avançar?')) window.MM_STORE.actions.closeMonth(); }}
+        style={{ display:'flex', alignItems:'center', gap:16, width:'100%', padding:'14px 0',
+                 borderBottom:`1px solid ${P.border}`, background:'transparent', border:'none',
+                 borderBottom:`1px solid ${P.border}`, cursor:'pointer', fontFamily:F.family, textAlign:'left' }}>
+        <div style={{ fontSize:14, fontWeight:600, color:P.text }}>Mudar mês</div>
+      </button>
+      <button onClick={() => { window.MM_STORE.actions.setCurrentUser(''); setTab('userselect'); }}
+        style={{ display:'flex', alignItems:'center', gap:16, width:'100%', padding:'14px 0',
+                 background:'transparent', border:'none', cursor:'pointer', fontFamily:F.family, textAlign:'left' }}>
+        <div style={{ fontSize:14, fontWeight:600, color:P.text }}>Mudar perfil</div>
+      </button>
+    </div>
+  );
+}
+
+// ── Sub: Enc. Fixos ────────────────────────────────────────────────────────────
+function SubEncargos({ onBack }) {
+  syncMMData();
+  const s = window.MM_STORE.get();
+  const encargos = s.encargos;
+  const mensais = encargos.filter(e => e.freq==='mensal' && e.active);
+  const anuais  = encargos.filter(e => e.freq==='anual'  && e.active);
+  const totalMensal = mensais.reduce((sum,e) => sum+e.amount, 0);
+  const totalAnual  = anuais.reduce((sum,e) => sum+e.amount, 0);
+
+  return (
+    <div style={{ fontFamily:F.family, paddingBottom:80 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 18px 12px' }}>
+        <button onClick={onBack} style={{ background:'transparent', border:'none', cursor:'pointer',
+                                          color:P.textDim, fontSize:22, padding:0 }}>‹</button>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase', letterSpacing:'0.07em' }}>ENCARGOS FIXOS</div>
+          <div style={{ fontSize:20, fontWeight:800, color:P.text }}>Encargos Fixos</div>
+        </div>
+      </div>
+      {/* Totals strip */}
+      <div style={{ display:'flex', gap:12, padding:'0 18px 16px', overflowX:'auto' }}>
+        {[
+          { label:'Mensal', val:totalMensal, c:P.expense },
+          { label:'Anual total', val:totalAnual, c:P.amber },
+          { label:'Equivalente/mês', val:totalMensal+totalAnual/12, c:P.text },
+        ].map(x => (
+          <div key={x.label} style={{ flexShrink:0, padding:'12px 16px', borderRadius:14,
+                                      background:P.surface2, minWidth:120 }}>
+            <div style={{ fontSize:11, color:P.textMute, fontWeight:600 }}>{x.label}</div>
+            <div style={{ fontSize:18, fontWeight:800, color:x.c, marginTop:4,
+                          fontVariantNumeric:'tabular-nums' }}>{window.fmtEur(x.val)}</div>
+          </div>
+        ))}
+      </div>
+      {/* Lists */}
+      {mensais.length > 0 && (
+        <div style={{ padding:'0 18px' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                        letterSpacing:'0.07em', marginBottom:12 }}>MENSAIS</div>
+          {mensais.map((e,i) => (
+            <div key={e.id} style={{ display:'flex', alignItems:'center', gap:12,
+                                     padding:'12px 0', borderBottom:`1px solid ${P.border}` }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600 }}>{e.name}</div>
+                <div style={{ fontSize:11, color:P.textMute, marginTop:2 }}>{e.cat}</div>
+              </div>
+              <div style={{ fontSize:14, fontWeight:700 }}>{window.fmtEurFull(e.amount)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {anuais.length > 0 && (
+        <div style={{ padding:'18px 18px 0' }}>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                        letterSpacing:'0.07em', marginBottom:12 }}>ANUAIS</div>
+          {anuais.map((e,i) => (
+            <div key={e.id} style={{ display:'flex', alignItems:'center', gap:12,
+                                     padding:'12px 0', borderBottom:`1px solid ${P.border}` }}>
+              <div style={{ width:42, fontSize:11, fontWeight:700, color:P.amber, flexShrink:0 }}>
+                {(e.month||'').slice(0,3).toUpperCase()}
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:600 }}>{e.name}</div>
+              </div>
+              <div style={{ fontSize:14, fontWeight:700, color:P.amber }}>{window.fmtEurFull(e.amount)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Sub: Gastos Variáveis ──────────────────────────────────────────────────────
+function SubGastos({ onBack }) {
+  syncMMData();
+  const D = window.MM_DATA;
+  const safeHistory = D.spendHistory.length > 0 ? D.spendHistory : [{ m:'—', fixos:0, var:0, josi:0, anuais:0, current:true }];
+  const max = Math.max(1, ...safeHistory.map(m => m.fixos+m.var+m.josi+m.anuais));
+  const varCats = Object.keys(D.variaveis||{});
+
+  return (
+    <div style={{ fontFamily:F.family, paddingBottom:80 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 18px 12px' }}>
+        <button onClick={onBack} style={{ background:'transparent', border:'none', cursor:'pointer',
+                                          color:P.textDim, fontSize:22, padding:0 }}>‹</button>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase', letterSpacing:'0.07em' }}>GASTOS</div>
+          <div style={{ fontSize:20, fontWeight:800, color:P.text }}>Gastos Variáveis</div>
+        </div>
+      </div>
+      {/* 7-month bar chart */}
+      <div style={{ margin:'0 18px 18px', padding:16, background:P.surface2, borderRadius:16 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase',
+                      letterSpacing:'0.06em', marginBottom:12 }}>Últimos 7 meses</div>
+        <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:80 }}>
+          {safeHistory.map((m, i) => {
+            const total = m.fixos+m.var+m.josi+m.anuais;
+            const h = Math.max(4, (total/max)*68);
+            return (
+              <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <div style={{ width:'80%', height:h,
+                              borderRadius:'4px 4px 0 0',
+                              background: m.current ? P.text : P.surface3,
+                              outline: m.current ? `2px solid ${P.green}` : 'none',
+                              outlineOffset:2 }} />
+                <div style={{ fontSize:9, fontWeight: m.current?700:500,
+                              color: m.current?P.text:P.textMute }}>{m.m}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginTop:10,
+                      paddingTop:10, borderTop:`1px solid ${P.border}` }}>
+          {[{l:'Fixos',c:P.expense},{l:'Variáveis',c:P.amber},{l:'Josi',c:P.blue}].map(x => (
+            <div key={x.l} style={{ display:'flex', alignItems:'center', gap:5 }}>
+              <div style={{ width:8, height:8, borderRadius:2, background:x.c }} />
+              <span style={{ fontSize:11, color:P.textDim, fontWeight:600 }}>{x.l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Categories */}
+      {varCats.map(cat => {
+        const entries = (D.variaveis[cat]||[]).slice().reverse();
+        const total = entries.reduce((s,e) => s+e.amount, 0);
+        if (!entries.length) return null;
+        return (
+          <div key={cat} style={{ padding:'0 18px', marginBottom:16 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:P.text }}>{cat}</div>
+              <div style={{ fontSize:13, fontWeight:700, color:P.amber }}>{window.fmtEur(total)}</div>
+            </div>
+            {entries.slice(0,5).map((e,i) => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:10,
+                                   padding:'9px 0', borderBottom:`1px solid ${P.border}` }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600 }}>{e.desc || cat}</div>
+                  <div style={{ fontSize:11, color:P.textMute }}>{e.date}</div>
+                </div>
+                <div style={{ fontSize:13, fontWeight:700 }}>{window.fmtEur(e.amount)}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Sub: Cofres ────────────────────────────────────────────────────────────────
+function SubCofres({ onBack }) {
+  syncMMData();
+  const s = window.MM_STORE.get();
+  const cofres = s.cofres;
+  const colorMap = { green:P.green, blue:P.blue, amber:P.amber, purple:P.purple, expense:P.expense };
+  const [actionSheet, setActionSheet] = React.useState(null); // { idx, mode }
+
+  return (
+    <div style={{ fontFamily:F.family, paddingBottom:80 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 18px 12px' }}>
+        <button onClick={onBack} style={{ background:'transparent', border:'none', cursor:'pointer',
+                                          color:P.textDim, fontSize:22, padding:0 }}>‹</button>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase', letterSpacing:'0.07em' }}>COFRES</div>
+          <div style={{ fontSize:20, fontWeight:800, color:P.text }}>
+            {window.fmtEur(cofres.reduce((s,c) => s+c.balance, 0))} guardados
+          </div>
+        </div>
+      </div>
+      <div style={{ padding:'0 18px' }}>
+        {cofres.map((c, i) => {
+          const col = colorMap[c.color] || P.green;
+          const pct = c.target ? Math.min(100, (c.balance/c.target)*100) : null;
+          return (
+            <div key={i} style={{ marginBottom:14, padding:18, borderRadius:18,
+                                  border:`1px solid ${P.border}`, background:P.surface }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+                <div>
+                  <div style={{ width:8, height:8, borderRadius:2, background:col, marginBottom:6 }} />
+                  <div style={{ fontSize:16, fontWeight:700, color:P.text }}>{c.name}</div>
+                  {c.target && (
+                    <div style={{ fontSize:11, color:P.textMute, marginTop:3 }}>
+                      Objetivo {window.fmtEur(c.target)}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize:22, fontWeight:800, color:col, fontVariantNumeric:'tabular-nums' }}>
+                  {window.fmtEur(c.balance)}
+                </div>
+              </div>
+              {c.target && (
+                <div style={{ height:6, background:P.surface3, borderRadius:100, overflow:'hidden', marginBottom:14 }}>
+                  <div style={{ width:`${pct}%`, height:'100%', background:col, borderRadius:100 }} />
+                </div>
+              )}
+              <div style={{ display:'flex', gap:10 }}>
+                <button onClick={() => setActionSheet({ idx:i, mode:'deposit' })} style={{
+                  flex:1, padding:'10px', borderRadius:100, background:col+'1a', color:col,
+                  border:'none', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:F.family,
+                }}>Depositar</button>
+                <button onClick={() => setActionSheet({ idx:i, mode:'withdraw' })} style={{
+                  flex:1, padding:'10px', borderRadius:100, background:'transparent', color:P.textDim,
+                  border:`1px solid ${P.border}`, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:F.family,
+                }}>Levantar</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <CofreActionSheet
+        open={!!actionSheet}
+        onClose={() => setActionSheet(null)}
+        cofreIdx={actionSheet?.idx}
+        mode={actionSheet?.mode}
+      />
+    </div>
+  );
+}
+
+// ── Sub: Investimentos ─────────────────────────────────────────────────────────
+function SubInvestimentos({ onBack }) {
+  syncMMData();
+  const s = window.MM_STORE.get();
+  const investimentos = s.investimentos;
+  const total = investimentos.reduce((sum,i) => sum+i.amount, 0);
+
+  // Build last invest date lookup
+  const lastInvestDate = {};
+  Object.values(s.months||{}).forEach(m => {
+    (m.investimentosMonth||[]).forEach(inv => {
+      const k = `${inv.plat}__${inv.asset}`;
+      if (!lastInvestDate[k] || inv.date > lastInvestDate[k]) lastInvestDate[k] = inv.date;
+    });
+  });
+
+  const byPlat = {};
+  investimentos.forEach((it, origIdx) => {
+    byPlat[it.plat] = byPlat[it.plat] || { plat:it.plat, amount:0, items:[] };
+    byPlat[it.plat].amount += it.amount;
+    byPlat[it.plat].items.push({ ...it, origIdx });
+  });
+
+  const platIcon = plat => plat.slice(0,3).toUpperCase();
+
+  return (
+    <div style={{ fontFamily:F.family, paddingBottom:80 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 18px 12px' }}>
+        <button onClick={onBack} style={{ background:'transparent', border:'none', cursor:'pointer',
+                                          color:P.textDim, fontSize:22, padding:0 }}>‹</button>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:P.textMute, textTransform:'uppercase', letterSpacing:'0.07em' }}>INVESTIMENTOS</div>
+          <div style={{ fontSize:20, fontWeight:800, color:P.text }}>Investimentos</div>
+        </div>
+      </div>
+      {/* Hero card */}
+      <div style={{ margin:'0 18px 18px', padding:20, borderRadius:18,
+                    background:P.green, color:'#fff' }}>
+        <div style={{ fontSize:11, fontWeight:700, opacity:0.7, textTransform:'uppercase',
+                      letterSpacing:'0.07em', marginBottom:8 }}>TOTAL INVESTIDO</div>
+        <div style={{ fontSize:36, fontWeight:800, fontVariantNumeric:'tabular-nums' }}>
+          {window.fmtEur(total)}
+        </div>
+        <div style={{ fontSize:13, opacity:0.75, marginTop:4 }}>
+          {Object.keys(byPlat).length} plataforma{Object.keys(byPlat).length!==1?'s':''}
+        </div>
+      </div>
+      {/* By platform */}
+      {Object.values(byPlat).map(g => (
+        <div key={g.plat} style={{ padding:'0 18px', marginBottom:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                        padding:'8px 0', borderBottom:`2px solid ${P.border}`, marginBottom:4 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:P.green }}>{g.plat}</div>
+            <div style={{ fontSize:13, fontWeight:700, color:P.textDim }}>{window.fmtEur(g.amount)}</div>
+          </div>
+          {g.items.map((it, i) => {
+            const dateStr = (() => {
+              if (it.registeredAt) {
+                const d = new Date(it.registeredAt);
+                return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+              }
+              const fd = lastInvestDate[`${it.plat}__${it.asset}`];
+              if (fd) {
+                const [y,m,day] = fd.split('-');
+                return `${parseInt(day)}/${parseInt(m)}/${y}`;
+              }
+              return 'Posição atual';
+            })();
+            return (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:12,
+                                   padding:'12px 0', borderBottom:`1px solid ${P.border}` }}>
+                <div style={{ width:36, height:36, borderRadius:10, background:P.greenSoft,
+                              color:P.green, display:'flex', alignItems:'center', justifyContent:'center',
+                              fontSize:10, fontWeight:800, flexShrink:0 }}>{platIcon(it.plat)}</div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:14, fontWeight:600, overflow:'hidden',
+                                textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{it.asset}</div>
+                  <div style={{ fontSize:11, color:P.textMute, marginTop:2 }}>{dateStr}</div>
+                </div>
+                <div style={{ fontSize:14, fontWeight:700, fontVariantNumeric:'tabular-nums' }}>
+                  {window.fmtEurFull(it.amount)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── App Shell ──────────────────────────────────────────────────────────────────
+function AppShell() {
+  const [tab, setTab] = React.useState('home');
+  const [sub, setSub] = React.useState(null);
+  const [sheet, setSheet] = React.useState(null);
+  const [tick, setTick] = React.useState(0);
+
+  React.useEffect(() => {
+    return window.MM_STORE.subscribe(() => { syncMMData(); setTick(t => t+1); });
+  }, []);
+
+  const handleTabChange = t => {
+    setSub(null);
+    setTab(t);
+    window.scrollTo({ top:0, behavior:'instant' });
+  };
+
+  const handleAction = id => {
+    if (id === 'gasto')  setSheet('gasto');
+    if (id === 'josi')   setSheet('josi');
+    if (id === 'invest') setSheet('invest');
+    if (id === 'task')   setSheet('task');
+  };
+
+  let MainContent;
+  if (sub) {
+    if (sub === 'encargos')      MainContent = <SubEncargos onBack={() => setSub(null)} />;
+    else if (sub === 'gastos')   MainContent = <SubGastos onBack={() => setSub(null)} />;
+    else if (sub === 'cofres')   MainContent = <SubCofres onBack={() => setSub(null)} />;
+    else if (sub === 'investimentos') MainContent = <SubInvestimentos onBack={() => setSub(null)} />;
+    else MainContent = null;
+  } else {
+    if (tab === 'home')    MainContent = <ScreenHome setTab={handleTabChange} />;
+    else if (tab === 'tarefas') MainContent = <ScreenTarefas />;
+    else if (tab === 'josi')    MainContent = <ScreenJosi />;
+    else if (tab === 'mais')    MainContent = <ScreenMais setSub={setSub} setTab={handleTabChange} />;
+    else MainContent = <ScreenHome setTab={handleTabChange} />;
+  }
+
+  return (
+    <div style={{ minHeight:'100dvh', fontFamily:F.family, background:P.bg }}>
+      {MainContent}
+      <TabBar tab={sub ? 'mais' : tab} setTab={handleTabChange} onPlus={() => setSheet('quick')} />
+      <QuickSheet open={sheet==='quick'} onClose={() => setSheet(null)} onAction={handleAction} />
+      <GastoSheet open={sheet==='gasto'} onClose={() => setSheet(null)} />
+      <JosiSheet open={sheet==='josi'} onClose={() => setSheet(null)} />
+      <InvestSheet open={sheet==='invest'} onClose={() => setSheet(null)} />
+      <TaskSheet open={sheet==='task'} onClose={() => setSheet(null)} />
+    </div>
+  );
+}
+
+// ── Root App ───────────────────────────────────────────────────────────────────
+function App() {
+  const [phase, setPhase] = React.useState('loading');
+  const [pinHash, setPinHash] = React.useState(null);
+  const [selectedUser, setSelectedUser] = React.useState(null);
+
+  React.useEffect(() => {
+    window._fbReady.then(async () => {
+      try {
+        const raw = await window._fbLoad('v2-state');
+        if (raw) {
+          const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          if (data && data.months) window.MM_STORE.actions.loadState(data);
+        } else {
+          try {
+            const ls = localStorage.getItem('monimoni:v1');
+            if (ls) {
+              const old = JSON.parse(ls);
+              if (old && old.months) {
+                window.MM_STORE.actions.loadState(old);
+                if (window._fbSave) window._fbSave('v2-state', ls);
+              }
+            }
+          } catch(e2) {}
+        }
+      } catch(e) { console.warn('state load failed', e); }
+      try {
+        const pin = await window._fbLoad('v2-pin');
+        if (pin?.hash) setPinHash(pin.hash);
+        setPhase('userselect');
+      } catch(e) { setPhase('userselect'); }
+    }).catch(() => setPhase('userselect'));
+  }, []);
+
+  if (phase === 'loading') return (
+    <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
+                  background:P.bg, fontFamily:F.family }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ width:56, height:56, borderRadius:'50%', background:P.green, color:'#fff',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontWeight:800, fontSize:28, margin:'0 auto 16px' }}>m</div>
+        <div style={{ fontSize:13, color:P.textMute, fontWeight:500 }}>A carregar…</div>
+      </div>
+    </div>
+  );
+
+  if (phase === 'userselect') return (
+    <UserSelect onSelect={name => { setSelectedUser(name); setPhase('pin'); }} />
+  );
+
+  if (phase === 'pin') return (
+    <PinScreen
+      pinHash={pinHash}
+      userName={selectedUser}
+      onSuccess={() => {
+        if (selectedUser) window.MM_STORE.actions.setCurrentUser(selectedUser);
+        setPhase('app');
+      }}
+      onSetup={async (pin) => {
+        try { await window._fbSave('v2-pin', { hash: btoa(pin) }); } catch(e) {}
+        if (selectedUser) window.MM_STORE.actions.setCurrentUser(selectedUser);
+        setPhase('app');
+      }}
+    />
+  );
+
+  return <AppShell />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
