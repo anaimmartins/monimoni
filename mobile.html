@@ -803,35 +803,75 @@ function PinScreen({ pinHash, onSuccess, onSetup, userName }) {
   );
 }
 
-// ── User Select ────────────────────────────────────────────────────────────────
+// ── User Select — V2 · Avatares em hero ────────────────────────────────────────
 function UserSelect({ onSelect }) {
+  const [pressed, setPressed] = React.useState(null);
   const users = [
-    { name:'Nocas', initial:'N', color:P.green },
-    { name:'João',  initial:'J', color:P.blue },
+    { name:'Nocas', initial:'N', color:P.green,  softBg:'rgba(31,122,82,0.07)'  },
+    { name:'João',  initial:'J', color:P.blue,   softBg:'rgba(43,90,160,0.07)'  },
   ];
   return (
-    <div style={{ minHeight:'100dvh', display:'flex', alignItems:'center', justifyContent:'center',
-                  background:P.bg, fontFamily:F.family, padding:24 }}>
-      <div style={{ width:'100%', maxWidth:360, textAlign:'center' }}>
-        <div style={{ width:56, height:56, borderRadius:'50%', background:P.green, color:P.onGreen,
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      fontWeight:800, fontSize:28, margin:'0 auto 28px' }}>m</div>
-        <div style={{ fontSize:26, fontWeight:800, letterSpacing:'-0.02em', marginBottom:8 }}>Quem és tu?</div>
-        <div style={{ fontSize:14, color:P.textDim, fontWeight:500, marginBottom:36 }}>Seleciona o teu perfil</div>
-        <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-          {users.map(u => (
-            <button key={u.name} onClick={() => onSelect(u.name)} style={{
-              padding:28, borderRadius:18, border:`1px solid ${P.border}`,
-              background:P.surface2, cursor:'pointer', fontFamily:F.family,
-              display:'flex', alignItems:'center', gap:18, textAlign:'left',
-            }}>
-              <div style={{ width:56, height:56, borderRadius:'50%', background:u.color, color:'#fff',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            fontWeight:800, fontSize:24, flexShrink:0 }}>{u.initial}</div>
-              <div style={{ fontSize:20, fontWeight:800, color:P.text }}>{u.name}</div>
-            </button>
-          ))}
-        </div>
+    <div style={{ position:'fixed', inset:0, display:'flex', flexDirection:'column',
+                  fontFamily:F.family, overflow:'hidden' }}>
+
+      {/* TOP HALF — Nocas */}
+      {users.map((u, i) => {
+        const isTop = i === 0;
+        const isBottom = i === 1;
+        return (
+          <button
+            key={u.name}
+            onPointerDown={() => setPressed(u.name)}
+            onPointerUp={() => setPressed(null)}
+            onPointerLeave={() => setPressed(null)}
+            onClick={() => onSelect(u.name)}
+            style={{
+              flex:1, border:'none', cursor:'pointer', position:'relative',
+              background: pressed === u.name ? u.softBg.replace('0.07','0.14') : u.softBg,
+              display:'flex', flexDirection:'column',
+              alignItems:'center', justifyContent:'center', gap:16,
+              transition:'background 0.15s',
+              borderBottom: isTop ? `1px solid ${P.border}` : 'none',
+            }}
+          >
+            {/* Avatar circle */}
+            <div style={{
+              width:112, height:112, borderRadius:'50%',
+              background: u.color,
+              color:'#fff',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontWeight:800, fontSize:48, letterSpacing:'-0.03em',
+              boxShadow:`0 8px 32px ${u.color}44`,
+              transform: pressed === u.name ? 'scale(0.95)' : 'scale(1)',
+              transition:'transform 0.15s',
+            }}>{u.initial}</div>
+
+            {/* Name */}
+            <div style={{ fontSize:26, fontWeight:800, letterSpacing:'-0.03em', color:P.text }}>
+              {u.name}
+            </div>
+
+            {/* Arrow hint */}
+            <div style={{ fontSize:13, color:P.textMute, fontWeight:600, marginTop:-4 }}>
+              toca para entrar
+            </div>
+          </button>
+        );
+      })}
+
+      {/* Centre badge — floats over the divider */}
+      <div style={{
+        position:'absolute', left:'50%', top:'50%',
+        transform:'translate(-50%, -50%)',
+        zIndex:10,
+        width:52, height:52, borderRadius:'50%',
+        background:P.bg,
+        border:`2px solid ${P.border}`,
+        display:'flex', alignItems:'center', justifyContent:'center',
+        boxShadow:'0 2px 12px rgba(0,0,0,0.10)',
+      }}>
+        <span style={{ fontSize:22, fontWeight:900, color:P.green, letterSpacing:'-0.04em',
+                       fontFamily:F.family }}>m</span>
       </div>
     </div>
   );
