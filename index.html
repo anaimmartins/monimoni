@@ -487,7 +487,7 @@ window.MM_DATA = {
         const existing = s.investimentos.find(i => i.plat===plat && i.asset===asset);
         const investimentos = existing
           ? s.investimentos.map(i => i===existing ? { ...i, amount:i.amount+amount } : i)
-          : [...s.investimentos, { plat, asset, amount, change:0 }];
+          : [...s.investimentos, { plat, asset, amount, change:0, registeredAt: new Date().toISOString() }];
         const md = s.months[key]||{};
         return { ...s, investimentos, months: { ...s.months, [key]: {
           tasks:md.tasks||[], activity:md.activity||[], variaveis:md.variaveis||{},
@@ -541,12 +541,12 @@ window.MM_DATA = {
     renameBank(id, name) { set(s => ({ ...s, banks: s.banks.map(b => b.id===id ? { ...b, name } : b) })); },
     deleteBank(id) { set(s => ({ ...s, banks: s.banks.filter(b => b.id!==id) })); },
 
-    addVariable(category, date, amount) {
+    addVariable(category, date, amount, desc='') {
       const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
       set(s => ({ ...s, months: { ...s.months, [key]: { ...s.months[key],
         variaveis: { ...(s.months[key]?.variaveis||{}),
-          [category]: [...(s.months[key]?.variaveis?.[category]||[]), { date, amount }] }}}}));
-      logActivity(`registou ${category}`, 'spend', `${Math.round(amount)}€`);
+          [category]: [...(s.months[key]?.variaveis?.[category]||[]), { date, amount, desc, ts: Date.now() }] }}}}));
+      logActivity(`registou ${category}${desc ? ` · ${desc}` : ''}`, 'spend', `${Math.round(amount)}€`);
     },
     deleteVariable(category, date, amount) {
       const key = monthKey(state.currentMonth.idx, state.currentMonth.year);
@@ -694,8 +694,8 @@ window.AppHeader = function AppHeader({ tab, setTab }) {
   const tabs = [
     { id:'home',     label:'Início' },
     { id:'tarefas',  label:'Tarefas' },
-    { id:'encargos', label:'Encargos' },
-    { id:'gastos',   label:'Gastos' },
+    { id:'encargos', label:'Enc. Fixos' },
+    { id:'gastos',   label:'Gastos Var.' },
     { id:'josi',     label:'Limpeza' },
     { id:'cofres',   label:'Cofres' },
     { id:'investir', label:'Investir' },
@@ -1253,19 +1253,20 @@ window.NewSpendModal = function NewSpendModal({ open, onClose, categories, onCre
   const [cat, setCat] = useSM(categories[0]||'');
   const [amount, setAmount] = useSM('');
   const [date, setDate] = useSM(today);
+  const [desc, setDesc] = useSM('');
   const [newCat, setNewCat] = useSM(false);
   const [newCatName, setNewCatName] = useSM('');
   useEM(() => {
-    if (open) { setCat(categories[0]||''); setAmount(''); setDate(today); setNewCat(false); setNewCatName(''); }
+    if (open) { setCat(categories[0]||''); setAmount(''); setDate(today); setDesc(''); setNewCat(false); setNewCatName(''); }
   }, [open]);
   const finalCat = newCat ? newCatName.trim() : cat;
   const valid = finalCat && amount && parseFloat(amount)>0;
   return (
-    <window.Modal open={open} onClose={onClose} title="Registar gasto"
+    <window.Modal open={open} onClose={onClose} title="Registar gasto variável"
       subtitle="Luz, gás, água ou outras categorias variáveis."
       footer={<>
         <button onClick={onClose} style={s.btnGhost()}>Cancelar</button>
-        <button onClick={() => { onCreate(finalCat, date, parseFloat(amount)||0); onClose(); }}
+        <button onClick={() => { onCreate(finalCat, date, parseFloat(amount)||0, desc.trim()); onClose(); }}
           disabled={!valid} style={{ ...s.btnPrimary(), opacity:!valid?0.4:1 }}>Registar</button>
       </>}>
       <window.Field label="Categoria">
@@ -1296,6 +1297,9 @@ window.NewSpendModal = function NewSpendModal({ open, onClose, categories, onCre
       </window.Field>
       <window.Field label="Valor (€)">
         <window.TextInput value={amount} onChange={setAmount} placeholder="0" prefix="€" type="number" />
+      </window.Field>
+      <window.Field label="Descrição (opcional)">
+        <window.TextInput value={desc} onChange={setDesc} placeholder="Ex.: Fatura EDP, enchimento depósito…" />
       </window.Field>
     </window.Modal>
   );
@@ -1894,21 +1898,19 @@ window.InvestmentDrawer = function InvestmentDrawer({ open, onClose, idx }) {
   const [editing, setEditing] = useSD(false);
   const [editAsset, setEditAsset] = useSD('');
   const [editAmount, setEditAmount] = useSD('');
-  const [editChange, setEditChange] = useSD('');
   useED(() => {
-    if (it) { setEditAsset(it.asset); setEditAmount(String(it.amount)); setEditChange(String(it.change||0)); setEditing(false); }
+    if (it) { setEditAsset(it.asset); setEditAmount(String(it.amount)); setEditing(false); }
   }, [open, idx]);
   if (!it) return null;
-  const positive = it.change >= 0;
   return (
     <window.Drawer open={open} onClose={onClose} kicker={it.plat}
       title={editing ? 'Editar posição' : it.asset}
-      accent={positive ? p.green : p.expense}
+      accent={p.green}
       footer={editing ? (
         <>
           <button onClick={() => setEditing(false)} style={s.btnGhost()}>Cancelar</button>
           <button onClick={() => {
-            A.updateInvestimento(idx, { asset:editAsset.trim()||it.asset, amount:parseFloat(editAmount)||0, change:parseFloat(editChange)||0 });
+            A.updateInvestimento(idx, { asset:editAsset.trim()||it.asset, amount:parseFloat(editAmount)||0 });
             setEditing(false);
           }} style={s.btnPrimary()}>Guardar</button>
         </>
@@ -1926,9 +1928,11 @@ window.InvestmentDrawer = function InvestmentDrawer({ open, onClose, idx }) {
           <div style={{ padding:20, borderRadius:14, background:p.surface2, border:`1px solid ${p.border}` }}>
             <div style={{ fontSize:11, fontWeight:700, color:p.textDim, textTransform:'uppercase', letterSpacing:'0.05em' }}>Valor investido</div>
             <div style={{ ...s.number(32), marginTop:6 }}>{window.fmtEurFull(it.amount)}</div>
-            <div style={{ fontSize:14, fontWeight:700, marginTop:8, color:positive?p.green:p.expense }}>
-              {positive?'↑':'↓'} {Math.abs(it.change).toFixed(1)}% vs. preço médio
-            </div>
+            {it.registeredAt && (() => { const d = new Date(it.registeredAt); return (
+              <div style={{ fontSize:12, color:p.textMute, marginTop:8, fontWeight:500 }}>
+                Registado em {d.getDate()}/{d.getMonth()+1}/{d.getFullYear()} às {d.getHours()}:{String(d.getMinutes()).padStart(2,'0')}
+              </div>
+            ); })()}
           </div>
           <window.SectionLabel>Detalhes</window.SectionLabel>
           <div style={{ fontSize:14, lineHeight:1.9 }}>
@@ -1943,7 +1947,6 @@ window.InvestmentDrawer = function InvestmentDrawer({ open, onClose, idx }) {
         <>
           <window.Field label="Ativo"><window.TextInput value={editAsset} onChange={setEditAsset} /></window.Field>
           <window.Field label="Valor investido (€)"><window.TextInput value={editAmount} onChange={setEditAmount} prefix="€" type="number" /></window.Field>
-          <window.Field label="Variação (%)" hint="Positivo se está a ganhar."><window.TextInput value={editChange} onChange={setEditChange} prefix="%" type="number" /></window.Field>
         </>
       )}
     </window.Drawer>
@@ -2237,7 +2240,7 @@ window.ScreenHome = function ScreenHome({ goto }) {
         onCreate={(date,hours,obs) => window.MM_STORE.actions.addJosiSession(date,hours,obs)} />
       <window.NewSpendModal open={showNewSpend} onClose={() => setShowNewSpend(false)}
         categories={Object.keys(D.variaveis).length>0?Object.keys(D.variaveis):['Eletricidade','Gás','Água']}
-        onCreate={(cat,date,amount) => window.MM_STORE.actions.addVariable(cat,date,amount)} />
+        onCreate={(cat,date,amount,desc) => window.MM_STORE.actions.addVariable(cat,date,amount,desc)} />
       <window.NewInvestmentModal open={showNewInvest} onClose={() => setShowNewInvest(false)}
         platforms={[...new Set(D.investimentos.map(i=>i.plat))]}
         assets={D.investimentos}
@@ -2504,8 +2507,8 @@ window.ScreenEncargos = function ScreenEncargos({ goto }) {
   return (
     <div>
       <window.PageTitle
-        kicker="Encargos"
-        title="Encargos"
+        kicker="Encargos Fixos"
+        title="Encargos Fixos"
         sub="Fixos mensais + anuais. Geram tarefas automaticamente em cada mês."
         action={
           <div style={{ display:'flex', gap:8 }}>
@@ -2784,7 +2787,7 @@ window.ScreenGastos = function ScreenGastos({ goto }) {
   return (
     <div>
       <window.PageTitle
-        kicker="Gastos & análise"
+        kicker="Gastos Variáveis"
         title={`${D.month} · ${fmtEurFull(currentTotal)}`}
         sub={
           <span>
@@ -2923,7 +2926,7 @@ window.ScreenGastos = function ScreenGastos({ goto }) {
         open={showNew}
         onClose={() => setShowNew(false)}
         categories={varKeys.length ? varKeys : ['Eletricidade','Gás','Água']}
-        onCreate={(cat, date, amount) => window.MM_STORE.actions.addVariable(cat, date, amount)}
+        onCreate={(cat, date, amount, desc) => window.MM_STORE.actions.addVariable(cat, date, amount, desc)}
       />
     </div>
   );
@@ -3260,14 +3263,7 @@ window.ScreenInvestir = function ScreenInvestir({ goto }) {
       <window.PageTitle
         kicker="Investir"
         title={fmtEurFull(total)}
-        sub={
-          <span>
-            <strong style={{ color:weightedChange>0?p.green:p.expense, fontWeight:700 }}>
-              {weightedChange>0?'↑':'↓'} {Math.abs(weightedChange).toFixed(1)}%
-            </strong>
-            {' '}vs. preço médio · {platNames.length} plataformas
-          </span>
-        }
+        sub={`${platNames.length} plataforma${platNames.length!==1?'s':''}`}
         action={<button onClick={() => setShowNew(true)} style={s.btnPrimary()}>+ Registar movimento</button>}
       />
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:22 }}>
@@ -3317,11 +3313,9 @@ window.ScreenInvestir = function ScreenInvestir({ goto }) {
                 onClick={() => setDetailIdx(it.origIdx)}>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:14, fontWeight:600 }}>{it.asset}</div>
-                  <div style={{ fontSize:11, color:p.textMute, marginTop:3, fontWeight:500 }}>Posição atual</div>
-                </div>
-                <div style={{ fontSize:12, fontWeight:700, color:it.change>0?p.green:p.expense,
-                  padding:'3px 9px', borderRadius:6, background:it.change>0?p.greenSoft:p.expenseSoft }}>
-                  {it.change>0?'↑':'↓'} {Math.abs(it.change).toFixed(1)}%
+                  <div style={{ fontSize:11, color:p.textMute, marginTop:3, fontWeight:500 }}>
+                    {it.registeredAt ? (() => { const d = new Date(it.registeredAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} às ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`; })() : 'Posição atual'}
+                  </div>
                 </div>
                 <div style={{ ...s.number(15), minWidth:90, textAlign:'right' }}>{fmtEurFull(it.amount)}</div>
                 <button style={{ background:'transparent', border:'none', color:p.textMute,
