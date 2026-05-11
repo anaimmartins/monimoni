@@ -3246,8 +3246,15 @@ window.ScreenInvestir = function ScreenInvestir({ goto }) {
 
   const investimentos = state.investimentos;
   const total = investimentos.reduce((sum, i) => sum + i.amount, 0);
-  const weightedChange = total > 0
-    ? investimentos.reduce((sum, i) => sum + (i.change * i.amount), 0) / total : 0;
+
+  // Build lookup: "plat__asset" → most recent date from investimentosMonth across all months
+  const lastInvestDate = {};
+  Object.values(state.months||{}).forEach(m => {
+    (m.investimentosMonth||[]).forEach(inv => {
+      const k = `${inv.plat}__${inv.asset}`;
+      if (!lastInvestDate[k] || inv.date > lastInvestDate[k]) lastInvestDate[k] = inv.date;
+    });
+  });
 
   const byPlat = {};
   investimentos.forEach((i, origIdx) => {
@@ -3314,7 +3321,18 @@ window.ScreenInvestir = function ScreenInvestir({ goto }) {
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:14, fontWeight:600 }}>{it.asset}</div>
                   <div style={{ fontSize:11, color:p.textMute, marginTop:3, fontWeight:500 }}>
-                    {it.registeredAt ? (() => { const d = new Date(it.registeredAt); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} às ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`; })() : 'Posição atual'}
+                    {(() => {
+                      if (it.registeredAt) {
+                        const d = new Date(it.registeredAt);
+                        return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} às ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+                      }
+                      const fd = lastInvestDate[`${it.plat}__${it.asset}`];
+                      if (fd) {
+                        const [y,m,day] = fd.split('-');
+                        return `${parseInt(day)}/${parseInt(m)}/${y}`;
+                      }
+                      return 'Posição atual';
+                    })()}
                   </div>
                 </div>
                 <div style={{ ...s.number(15), minWidth:90, textAlign:'right' }}>{fmtEurFull(it.amount)}</div>
